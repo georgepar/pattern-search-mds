@@ -4,6 +4,7 @@ __pycache__/
 *$py.class
 
 # C extensions
+mds/mds_utils.c
 *.so
 
 # Distribution / packaging
