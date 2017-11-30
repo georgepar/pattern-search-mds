@@ -21,9 +21,9 @@ class RadiusUpdate(object):
 
 class LinearRadiusDecrease(RadiusUpdate):
     def update(self, radius, turn, error, prev_error, burnout=0):
-        if error > 0.9 * prev_error:
-            return max(self.step_size,
-                       self.step_size * 10 / np.sqrt(1.0 + turn)), burnout
+        #if error > 0.9 * prev_error:
+        return max(self.step_size,
+                   self.step_size * 10 / np.sqrt(turn)), burnout
         return radius, burnout
 
 

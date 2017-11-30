@@ -40,7 +40,7 @@ class MDS(object):
     def _log_iteration(turn, radius, prev_error, error):
         LOG.info("Turn {0}: Radius {1}: (prev, error decrease, error): "
                  "({2}, {3}, {4})".format(
-                    turn, radius, prev_error, prev_error - error, error))
+            turn, radius, prev_error, prev_error - error, error))
 
     @staticmethod
     def _init_pertubations(dim):
@@ -82,7 +82,7 @@ class MDS(object):
             pertubations = radius * pertubations_unscaled
 
             filtered_points = self.point_filter.filter(
-                    points, turn, d_goal=d_goal, d_current=d_current)
+                points, turn=turn, d_goal=d_goal, d_current=d_current)
             for point in filtered_points:
                 error_i = common.MSE(d_goal[point], d_current[point])
                 optimum_error, optimum_k = common.BEST_PERTUBATION(
@@ -100,7 +100,11 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         D_goal = np.loadtxt(sys.argv[1], delimiter=',')
     else:
-        X_real, D_goal = common.instance(1000, 10)
-    point_f = pf.StochasticFilter()
-    rad_up = ru.AdaRadiusHalving()
-    x_mds = MDS(3, point_f, rad_up).fit(X_real)
+        X_real, D_goal = common.instance(3000, 10)
+    point_f = pf.GSDFilter()
+    rad_up = ru.LinearRadiusDecrease()
+    x_mds = MDS(3, point_f, rad_up,
+                patience=1,
+                max_turns=10000,
+                error_barrier=1e-20,
+                starting_radius=0.1).fit(X_real)
