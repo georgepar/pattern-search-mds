@@ -5,8 +5,6 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn.manifold import Isomap
 from scipy.spatial import distance_matrix
 
-import mds.common as common
-
 
 class Shape(object):
     def __init__(self, seed=42, n_neighbors=8, dim=3, n_jobs=4):
@@ -23,7 +21,7 @@ class Shape(object):
            self.points is not None and
            npoints == self.points.shape[0]):
             return self.points
-        self.points = common.random_table(npoints, self.dim)
+        self.points = np.random.rand(npoints, self.dim)
         return self.points
 
     def euclidean_distances(self, points=None, use_cache=True):

@@ -1,3 +1,6 @@
+experiments/config.py
+history/
+
 .idea/
 *.dat
 *.swp

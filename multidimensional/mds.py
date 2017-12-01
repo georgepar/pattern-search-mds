@@ -1,17 +1,20 @@
 #!/usr/bin/python3
 
 import logging
+import os
 import sys
 
+from datetime import datetime
 import numpy as np
 from scipy.spatial import distance_matrix
 
+import config
 import common
 import point_filters as pf
 import radius_updates as ru
 
 logging.basicConfig()
-LOG = logging.getLogger("mds")
+LOG = logging.getLogger("MDS")
 LOG.setLevel(logging.DEBUG)
 
 
@@ -25,7 +28,8 @@ class MDS(object):
                  patience=100,
                  error_barrier=1e-2,
                  radius_barrier=1e-5,
-                 uniform_init=True):
+                 uniform_init=True,
+                 keep_history=True):
         self.target_dimensions = target_dimensions
         self.point_filter = point_filter
         self.radius_update = radius_update
@@ -35,12 +39,23 @@ class MDS(object):
         self.error_barrier = error_barrier
         self.radius_barrier = radius_barrier
         self.uniform_init = uniform_init
+        self.keep_history = keep_history
+        self.history = {}
+        if keep_history:
+            self.history = {
+                'radius': [],
+                'error': [],
+                'xs_files': []
+            }
+            self.history_path = os.path.join(
+                config.HISTORY_DIR, str(datetime.now()))
+            common.mkdir_p(self.history_path)
 
     @staticmethod
     def _log_iteration(turn, radius, prev_error, error):
         LOG.info("Turn {0}: Radius {1}: (prev, error decrease, error): "
-                 "({2}, {3}, {4})".format(
-            turn, radius, prev_error, prev_error - error, error))
+                 "({2}, {3}, {4})"
+                 .format(turn, radius, prev_error, prev_error - error, error))
 
     @staticmethod
     def _init_pertubations(dim):
@@ -51,6 +66,13 @@ class MDS(object):
                 patience_cnt >= self.patience or
                 error <= self.error_barrier or
                 radius <= self.radius_barrier)
+
+    def _history(self, turn, radius, error, xs):
+        xs_file = os.path.join(self.history_path, 'xs_{}.csv'.format(turn))
+        np.savetxt(xs_file, xs, delimiter=',')
+        self.history['radius'].append(radius)
+        self.history['error'].append(error)
+        self.history['xs_files'].append(xs_file)
 
     @common.timemethod
     def fit(self, x, d_goal=None):
@@ -69,6 +91,10 @@ class MDS(object):
         error = common.compute_mds_error(d_goal, d_current)
         prev_error = np.Inf
         LOG.info("Starting Error: {}".format(error))
+
+        if self.keep_history:
+            self._history(turn, radius, error, xs)
+
         while not self._stop_conditions(
                 turn, patience_cnt, error, radius):
             xorg = xs.copy()
@@ -91,6 +117,8 @@ class MDS(object):
                 d_current = common.UPDATE_DISTANCE_MATRIX(xs, d_current, point)
                 error -= 1.0 * (error_i - optimum_error)
             self._log_iteration(turn, radius, prev_error, error)
+            if self.keep_history:
+                self._history(turn, radius, error, xs)
         LOG.info("Ending Error: {}".format(error))
         return xs
 
@@ -100,7 +128,7 @@ if __name__ == '__main__':
     if len(sys.argv) >= 2:
         D_goal = np.loadtxt(sys.argv[1], delimiter=',')
     else:
-        X_real, D_goal = common.instance(3000, 10)
+        X_real, D_goal = common.instance(100, 10)
     point_f = pf.GSDFilter()
     rad_up = ru.LinearRadiusDecrease()
     x_mds = MDS(3, point_f, rad_up,
@@ -108,3 +136,5 @@ if __name__ == '__main__':
                 max_turns=10000,
                 error_barrier=1e-20,
                 starting_radius=0.1).fit(X_real)
+    #m = MDS(3, point_f, rad_up)
+    #x_mds = m.fit(X_real)

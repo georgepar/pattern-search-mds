@@ -1,9 +1,10 @@
 #!/usr/bin/python3
+import errno
 import functools
-import types
+import os
+import time
 
 import numpy as np
-import time
 from scipy.spatial import distance_matrix
 import mds_utils
 
@@ -14,6 +15,16 @@ NORMR = mds_utils.dist_from_point
 MSE = mds_utils.mse
 SUM = np.sum
 SQRT = np.sqrt
+
+
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:  # Python >2.5
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 
 def timefunc(func):
