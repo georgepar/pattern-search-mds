@@ -1,4 +1,5 @@
 experiments/config.py
+experiments/sacred_utils/config.py
 history/
 
 .idea/
