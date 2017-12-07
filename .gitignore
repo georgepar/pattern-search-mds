@@ -1,6 +1,8 @@
+*.png
+
 experiments/config.py
 experiments/sacred_utils/config.py
-history/
+history/**/
 
 .idea/
 *.dat
