@@ -13,6 +13,7 @@ UPDATE_DISTANCE_MATRIX = mds_utils.update_distance_matrix
 BEST_PERTUBATION = mds_utils.pertub_error
 NORMR = mds_utils.dist_from_point
 MSE = mds_utils.mse
+MSE2 = mds_utils.mse2
 SUM = np.sum
 SQRT = np.sqrt
 

@@ -38,26 +38,90 @@ class StochasticFilter(PointFilter):
     def __init__(self,
                  min_points_per_turn=0.2,
                  max_points_per_turn=1.0,
-                 keep_percent=0.5,
-                 monte_carlo_resampling=1,
                  recalculate_each=10):
         super(StochasticFilter, self).__init__(
             min_points_per_turn=min_points_per_turn,
             max_points_per_turn=max_points_per_turn,
             recalculate_each=recalculate_each)
-        self.keep_percent = keep_percent
-        self.monte_carlo_resampling = monte_carlo_resampling
-
-    def keep_alternative(self, points, turn):
-        del turn
-        return (int(points.shape[0] * self.keep_percent) *
-                self.monte_carlo_resampling)
 
     def _filt(self, points, turn=None, d_goal=None, d_current=None):
         keep = self.keep(points, turn)
         if keep == points.shape[0]:
             return points
         return np.random.choice(points, size=keep, replace=False)
+
+
+class PeriodicStochasticFilter(StochasticFilter):
+    def __init__(self,
+                 min_points_per_turn=0.2,
+                 max_points_per_turn=1.0,
+                 recalculate_each=10):
+        super(StochasticFilter, self).__init__(
+            min_points_per_turn=min_points_per_turn,
+            max_points_per_turn=max_points_per_turn,
+            recalculate_each=recalculate_each)
+
+    def keep(self, points, turn):
+        period = 10
+        points_percent = 1.0 - (turn % period) / float(period)
+        points_percent = max(
+            min(points_percent, self.max_points_per_turn),
+            self.min_points_per_turn)
+        return int(points.shape[0] * points_percent)
+
+    def filter(self, points, turn=None, d_goal=None, d_current=None):
+        return self._filt(
+            points, turn=turn, d_goal=d_goal, d_current=d_current)
+
+
+class StepStochasticFilter(StochasticFilter):
+    def __init__(self,
+                 min_points_per_turn=0.2,
+                 max_points_per_turn=1.0,
+                 recalculate_each=10):
+        super(StochasticFilter, self).__init__(
+            min_points_per_turn=min_points_per_turn,
+            max_points_per_turn=max_points_per_turn,
+            recalculate_each=recalculate_each)
+        self.state = self.max_points_per_turn
+
+    def update_state(self, turn):
+        change = 20
+        if turn % change == 0:
+            self.state -= 0.1
+
+    def keep(self, points, turn):
+        points_percent = max(
+            min(self.state, self.max_points_per_turn),
+            self.min_points_per_turn)
+        return int(points.shape[0] * points_percent)
+
+    def filter(self, points, turn=None, d_goal=None, d_current=None):
+        self.update_state(turn)
+        # if turn % self.recalculate_each == 0:
+        #     return points
+        return self._filt(
+            points, turn=turn, d_goal=d_goal, d_current=d_current)
+
+
+class FixedStochasticFilter(StochasticFilter):
+    def __init__(self,
+                 min_points_per_turn=0.2,
+                 max_points_per_turn=1.0,
+                 keep_percent=0.5,
+                 recalculate_each=10):
+        super(StochasticFilter, self).__init__(
+            min_points_per_turn=min_points_per_turn,
+            max_points_per_turn=max_points_per_turn,
+            recalculate_each=recalculate_each)
+        self.keep_percent = keep_percent
+
+    def keep(self, points, turn):
+        return int(points.shape[0] * self.keep_percent)
+
+    def filter(self, points, turn=None, d_goal=None, d_current=None):
+        return self._filt(
+            points, turn=turn, d_goal=d_goal, d_current=d_current)
 
 
 class GSDFilter(PointFilter):

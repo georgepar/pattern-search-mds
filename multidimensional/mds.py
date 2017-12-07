@@ -10,6 +10,8 @@ from scipy.spatial import distance_matrix
 
 import config
 import common
+import datagen.shapes
+
 import point_filters as pf
 import radius_updates as ru
 
@@ -25,9 +27,9 @@ class MDS(object):
                  radius_update,
                  starting_radius=1.0,
                  max_turns=1000,
-                 patience=100,
+                 patience=np.Inf,
                  error_barrier=1e-2,
-                 radius_barrier=1e-5,
+                 radius_barrier=1e-3,
                  uniform_init=True,
                  keep_history=True):
         self.target_dimensions = target_dimensions
@@ -48,7 +50,8 @@ class MDS(object):
                 'xs_files': []
             }
             self.history_path = os.path.join(
-                config.HISTORY_DIR, str(datetime.now()))
+                config.HISTORY_DIR,
+                str(datetime.now().strftime("%Y%m%d%H%M%S")))
             common.mkdir_p(self.history_path)
 
     @staticmethod
@@ -68,17 +71,29 @@ class MDS(object):
                 radius <= self.radius_barrier)
 
     def _history(self, turn, radius, error, xs):
-        xs_file = os.path.join(self.history_path, 'xs_{}.csv'.format(turn))
+
+        xs_file = os.path.join(self.history_path, 'epoch_{}'.format(turn))
         np.savetxt(xs_file, xs, delimiter=',')
         self.history['radius'].append(radius)
         self.history['error'].append(error)
         self.history['xs_files'].append(xs_file)
 
+    def _history_done(self, turn):
+        cfg_file = os.path.join(self.history_path, 'config')
+        with open(cfg_file, 'w') as fd:
+            fd.writelines([
+                'DIM={}\n'.format(self.target_dimensions),
+                'EPOCHS={}'.format(turn)
+            ])
+
     @common.timemethod
-    def fit(self, x, d_goal=None):
-        xs = common.random_table(x.shape[0],
-                                 self.target_dimensions,
-                                 uniform=self.uniform_init)
+    def fit(self, x, d_goal=None, init_x=False):
+        if init_x:
+            xs = x
+        else:
+            xs = common.random_table(x.shape[0],
+                                     self.target_dimensions,
+                                     uniform=self.uniform_init)
         d_goal = d_goal if d_goal is not None else distance_matrix(x, x)
         d_current = distance_matrix(xs, xs)
         pertubations_unscaled = self._init_pertubations(self.target_dimensions)
@@ -95,11 +110,14 @@ class MDS(object):
         if self.keep_history:
             self._history(turn, radius, error, xs)
 
+        prev_pertubations = np.zeros((xs.shape[0], xs.shape[1]))
+
         while not self._stop_conditions(
                 turn, patience_cnt, error, radius):
             xorg = xs.copy()
             turn += 1
             radius_burnout += 1
+
             if error >= prev_error:
                 patience_cnt += 1
             radius, radius_burnout = self.radius_update.update(
@@ -114,27 +132,23 @@ class MDS(object):
                 optimum_error, optimum_k = common.BEST_PERTUBATION(
                     xs, xorg, pertubations, d_current, d_goal, point)
                 xs[point] = xorg[point] + pertubations[optimum_k]
+                prev_pertubations[point, :] = pertubations[optimum_k]
                 d_current = common.UPDATE_DISTANCE_MATRIX(xs, d_current, point)
-                error -= 1.0 * (error_i - optimum_error)
+                error -= (error_i - optimum_error)
             self._log_iteration(turn, radius, prev_error, error)
             if self.keep_history:
                 self._history(turn, radius, error, xs)
+        self._history_done(turn)
         LOG.info("Ending Error: {}".format(error))
         return xs
 
 
 if __name__ == '__main__':
     np.random.seed(42)
-    if len(sys.argv) >= 2:
-        D_goal = np.loadtxt(sys.argv[1], delimiter=',')
-    else:
-        X_real, D_goal = common.instance(100, 10)
-    point_f = pf.GSDFilter()
-    rad_up = ru.LinearRadiusDecrease()
-    x_mds = MDS(3, point_f, rad_up,
-                patience=1,
-                max_turns=10000,
-                error_barrier=1e-20,
-                starting_radius=0.1).fit(X_real)
-    #m = MDS(3, point_f, rad_up)
-    #x_mds = m.fit(X_real)
+    shape = datagen.shapes.Sphere(use_noise=False)
+    #shape = datagen.shapes.Ball(use_noise=False)
+    X_real, D_goal = shape.instance(1404, distance='geodesic')
+    point_f = pf.StochasticFilter()
+    rad_up = ru.AdaRadiusHalving()
+    m = MDS(2, point_f, rad_up, starting_radius=1, keep_history=True)
+    x_mds = m.fit(X_real, d_goal=D_goal, init_x=False)
