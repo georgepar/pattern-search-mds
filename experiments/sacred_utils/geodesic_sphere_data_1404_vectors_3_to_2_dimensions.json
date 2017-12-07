@@ -1,0 +1,9 @@
+{
+  "GSD geodesic dijkstra": {
+    "MSE": "5a212e60624499587619539e"
+  },
+  "MDS-v2 geodesic dijkstra": {
+    "MSE": "5a212e256244995876195379"
+  }
+}
+
