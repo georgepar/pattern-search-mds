@@ -7,6 +7,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from sklearn.neighbors import NearestNeighbors, radius_neighbors_graph
 from sklearn.utils.graph import  graph_shortest_path
 from scipy.spatial import distance_matrix
+from scipy.spatial.distance import pdist, squareform
 
 import multidimensional.config as config
 
@@ -27,6 +28,7 @@ class Shape(object):
         self.n_jobs = n_jobs
         self.points = None
         self.euclidean_d = None
+        self.sqeuclidean_d = None
         self.geodesic_d = None
         self.use_noise = use_noise
         self.noise_std = noise_std
@@ -56,6 +58,14 @@ class Shape(object):
             points = self.points
         self.euclidean_d = distance_matrix(points, points)
         return self.euclidean_d
+
+    def sqeuclidean_distances(self, points=None, use_cache=True):
+        if use_cache and self.sqeuclidean_d is not None:
+            return self.euclidean_d
+        if points is None:
+            points = self.points
+        self.sqeuclidean_d = squareform(pdist(points, metric='sqeuclidean'))
+        return self.sqeuclidean_d
 
     def geodesic_distances(self, points=None, use_cache=True):
         if use_cache and self.geodesic_d is not None:
@@ -97,6 +107,8 @@ class Shape(object):
         points = self.generate(npoints)
         if distance == 'euclidean':
             dist = self.euclidean_distances()
+        elif distance == 'sqeuclidean':
+            dist = self.sqeuclidean_distances()
         else:
             dist = self.geodesic_distances()
         return points, dist

@@ -5,8 +5,8 @@ import common
 
 class PointFilter(object):
     def __init__(self,
-                 min_points_per_turn=0.2,
-                 max_points_per_turn=0.8,
+                 min_points_per_turn=0.1,
+                 max_points_per_turn=1.0,
                  recalculate_each=10):
         self.min_points_per_turn = min_points_per_turn
         self.max_points_per_turn = max_points_per_turn
@@ -31,12 +31,13 @@ class PointFilter(object):
 
 
 class IncludeAllPointsFilter(PointFilter):
-    pass
+    def filter(self, points, turn=None, d_goal=None, d_current=None):
+        return points
 
 
 class StochasticFilter(PointFilter):
     def __init__(self,
-                 min_points_per_turn=0.2,
+                 min_points_per_turn=0.1,
                  max_points_per_turn=1.0,
                  recalculate_each=10):
         super(StochasticFilter, self).__init__(
@@ -108,8 +109,8 @@ class FixedStochasticFilter(StochasticFilter):
     def __init__(self,
                  min_points_per_turn=0.2,
                  max_points_per_turn=1.0,
-                 keep_percent=0.5,
-                 recalculate_each=10):
+                 keep_percent=0.01,
+                 recalculate_each=20):
         super(StochasticFilter, self).__init__(
             min_points_per_turn=min_points_per_turn,
             max_points_per_turn=max_points_per_turn,
@@ -120,6 +121,8 @@ class FixedStochasticFilter(StochasticFilter):
         return int(points.shape[0] * self.keep_percent)
 
     def filter(self, points, turn=None, d_goal=None, d_current=None):
+        if turn % self.recalculate_each == 0:
+            return points
         return self._filt(
             points, turn=turn, d_goal=d_goal, d_current=d_current)
 

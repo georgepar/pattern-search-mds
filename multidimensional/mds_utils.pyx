@@ -88,7 +88,10 @@ cpdef double mse2(nd_arr[np.float64_t, ndim=2] d_goal, nd_arr[np.float64_t, ndim
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef nd_arr[np.float64_t, ndim=2] update_distance_matrix(nd_arr[np.float64_t, ndim=2] xs, nd_arr[np.float64_t, ndim=2] d_current, int i):
+cpdef nd_arr[np.float64_t, ndim=2] update_distance_matrix(
+        nd_arr[np.float64_t, ndim=2] xs,
+        nd_arr[np.float64_t, ndim=2] d_current,
+        int i):
     cdef:
         Py_ssize_t N = d_current.shape[0]
         Py_ssize_t jj = 0
@@ -99,6 +102,29 @@ cpdef nd_arr[np.float64_t, ndim=2] update_distance_matrix(nd_arr[np.float64_t, n
         d_current[i, jj] = norm[jj]
     return d_current
 
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef nd_arr[np.float64_t, ndim=2] update_distance_matrix2(
+        nd_arr[np.float64_t, ndim=2] xs,
+        nd_arr[np.float64_t, ndim=2] d_current,
+        int ii,
+        double optimum_step,
+        int optimum_k):
+    cdef:
+        Py_ssize_t N = d_current.shape[0]
+        Py_ssize_t jj = 0
+        double d = 0
+
+    for jj in range(N):
+        if ii != jj:
+            d = sqrt(d_current[ii, jj] ** 2 -
+                (xs[ii, optimum_k] - xs[jj, optimum_k]) ** 2 +
+                (xs[ii, optimum_k] + optimum_step - xs[jj, optimum_k]) ** 2)
+            d_current[ii, jj] = d
+            d_current[jj, ii] = d
+    d_current[ii, ii] = 0
+    return d_current
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -127,6 +153,43 @@ cpdef (double, int) pertub_error(nd_arr[np.float64_t, ndim=2] xs,
             optimum_error = e
             optimum_k = kk
     return optimum_error, optimum_k
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef (double, int, double) pertub_error1(nd_arr[np.float64_t, ndim=2] xs,
+                                  double radius,
+                                  nd_arr[np.float64_t, ndim=2] d_current,
+                                  nd_arr[np.float64_t, ndim=2] d_goal,
+                                  int ii):
+    cdef:
+        Py_ssize_t step_size = xs.shape[1]
+        Py_ssize_t x_rows = xs.shape[0]
+        Py_ssize_t jj, kk, ll
+
+        double optimum_error = np.Inf
+        int optimum_k = 0
+        double optimum_step = 0
+        double e = 0
+        double d_temp = 0
+
+    for jj in range(2 * step_size):
+        step = radius if jj < step_size else -radius
+        kk = jj % step_size
+        e = 0
+        for ll in range(x_rows):
+            d_temp = d_current[ii, ll]
+            if ii != ll:
+                d_temp = sqrt(d_current[ii, ll] * d_current[ii, ll] -
+                                     (xs[ii, kk] - xs[ll, kk]) ** 2 +
+                                     (xs[ii, kk] + step - xs[ll, kk]) ** 2)
+            e += (d_goal[ii, ll] - d_temp) ** 2
+        if e < optimum_error:
+            optimum_error = e
+            optimum_k = kk
+            optimum_step = step
+    return optimum_error, optimum_k, optimum_step
+
 
 """
 @cython.boundscheck(False)
