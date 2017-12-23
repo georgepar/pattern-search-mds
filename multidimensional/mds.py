@@ -32,6 +32,7 @@ class MDS(object):
                  patience=np.Inf,
                  error_barrier=1e-2,
                  radius_barrier=1e-3,
+                 explore_dim_percent=.5,
                  uniform_init=True,
                  keep_history=True):
         self.target_dimensions = target_dimensions
@@ -44,6 +45,7 @@ class MDS(object):
         self.radius_barrier = radius_barrier
         self.uniform_init = uniform_init
         self.keep_history = keep_history
+        self.explore_dim_percent = explore_dim_percent
         self.history = {}
         if keep_history:
             self.history = {
@@ -98,7 +100,6 @@ class MDS(object):
                                      uniform=self.uniform_init)
         d_goal = d_goal if d_goal is not None else distance_matrix(x, x)
         d_current = distance_matrix(xs, xs)
-        #pertubations_unscaled = self._init_pertubations(self.target_dimensions)
         points = np.arange(xs.shape[0])
 
         radius = self.starting_radius
@@ -114,7 +115,6 @@ class MDS(object):
 
         while not self._stop_conditions(
                 turn, patience_cnt, error, radius):
-            #xorg = xs.copy()
             turn += 1
             radius_burnout += 1
 
@@ -123,23 +123,19 @@ class MDS(object):
             radius, radius_burnout = self.radius_update.update(
                 radius, turn, error, prev_error, burnout=radius_burnout)
             prev_error = error
-            #pertubations = radius * pertubations_unscaled
             filtered_points = self.point_filter.filter(
                 points, turn=turn, d_goal=d_goal, d_current=d_current)
             test_error = error
             for point in filtered_points:
                 error_i = common.MSE(d_goal[point], d_current[point])
-                #optimum_error, optimum_k = common.BEST_PERTUBATION(
-                #    xs, xorg, pertubations, d_current, d_goal, point)
-                optimum_error, optimum_k, optimum_step = common.BEST_PERTUBATION2(
-                    xs, radius, d_current, d_goal, point)
-                #xs[point] = xorg[point] + pertubations[optimum_k]
-                #old_error = error
+                optimum_error, optimum_k, optimum_step = (
+                    common.BEST_PERTUBATION(
+                        xs, radius, d_current, d_goal, point,
+                        percent=self.explore_dim_percent))
                 test_error -= (error_i - optimum_error)
-                #if old_error - test_error > 0:
-                d_current = common.UPDATE_DISTANCE_MATRIX2(xs, d_current, point, optimum_step, optimum_k)
+                d_current = common.UPDATE_DISTANCE_MATRIX(
+                    xs, d_current, point, optimum_step, optimum_k)
                 xs[point, optimum_k] += optimum_step
-                #d_current = common.SET_DISTANCE_MATRIX(d, d_current, point)
                 error = test_error
             self._log_iteration(turn, radius, prev_error, error)
             if self.keep_history:
@@ -155,18 +151,29 @@ def smacof(m, D_goal, x_init=None):
     return x_mds
 
 if __name__ == '__main__':
+    X = None
+    with open('/home/geopar/projects/hidden-set-mds/real_data/glove.men.300d.txt') as fd:
+        d = [map(float, l.strip().split()[1:]) for l in fd.readlines()]
+        X = np.array(d)
+        print(X.shape)
     np.random.seed(42)
-    shape = datagen.shapes.Shape(use_noise=False, dim=300)
+    shape = datagen.shapes.Shape(X=X, use_noise=False, dim=300)
     X_real, D_goal = shape.instance(751, distance='euclidean')
-    point_f = pf.IncludeAllPointsFilter()
-    rad_up = ru.AdaRadiusHalving(tolerance=1e-4)
-    m = MDS(50, point_f, rad_up, starting_radius=4, max_turns=10000, keep_history=False)
-    #x_init = np.array(approximate_mds.cmds_tzeng(D_goal, 50)[0])
+    print(np.all(X == X_real))
+    point_f = pf.FixedStochasticFilter(keep_percent=1)
+    rad_up = ru.AdaRadiusHalving(tolerance=.5 * 1e-3)
+    x = X_real
+    m = MDS(
+        100, point_f, rad_up,
+        starting_radius=4,
+        explore_dim_percent=.3,
+        max_turns=10000,
+        keep_history=False)
 
-    x_mds = m.fit(X_real, d_goal=D_goal, init_x=False)
-    #m = skMDS(verbose=2, max_iter=100000, n_components=50, dissimilarity='precomputed', n_init=1, n_jobs=1)
+    x_mds = m.fit(x, d_goal=D_goal, init_x=False)
+    #m = skMDS(verbose=2, max_iter=100000, n_components=100, dissimilarity='precomputed', n_init=4, n_jobs=4)
 
-    #smacof(m, D_goal)
+    #smacof(m, D_goal, x_init=None)
 
     # np.savetxt('glove.men.mds.50d.txt', x_mds, delimiter=' ')
 

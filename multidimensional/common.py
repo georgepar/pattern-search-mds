@@ -10,9 +10,7 @@ import mds_utils
 
 
 UPDATE_DISTANCE_MATRIX = mds_utils.update_distance_matrix
-UPDATE_DISTANCE_MATRIX2 = mds_utils.update_distance_matrix2
 BEST_PERTUBATION = mds_utils.pertub_error
-BEST_PERTUBATION2 = mds_utils.pertub_error1
 NORMR = mds_utils.dist_from_point
 MSE = mds_utils.mse
 MSE2 = mds_utils.mse2

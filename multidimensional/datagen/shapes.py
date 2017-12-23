@@ -14,6 +14,7 @@ import multidimensional.config as config
 
 class Shape(object):
     def __init__(self,
+                 X=None,
                  name='random',
                  seed=42,
                  n_neighbors=8,
@@ -26,7 +27,7 @@ class Shape(object):
         self.n_neighbors = n_neighbors
         self.dim = dim
         self.n_jobs = n_jobs
-        self.points = None
+        self.points = X
         self.euclidean_d = None
         self.sqeuclidean_d = None
         self.geodesic_d = None
@@ -104,7 +105,10 @@ class Shape(object):
         self._save_data(self.geodesic_d, 'Geodesic_{}.dat')
 
     def instance(self, npoints, distance='euclidean'):
-        points = self.generate(npoints)
+        if self.points is None:
+            points = self.generate(npoints)
+        else:
+            points = self.points
         if distance == 'euclidean':
             dist = self.euclidean_distances()
         elif distance == 'sqeuclidean':

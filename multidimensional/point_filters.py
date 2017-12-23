@@ -110,7 +110,7 @@ class FixedStochasticFilter(StochasticFilter):
                  min_points_per_turn=0.2,
                  max_points_per_turn=1.0,
                  keep_percent=0.01,
-                 recalculate_each=20):
+                 recalculate_each=10):
         super(StochasticFilter, self).__init__(
             min_points_per_turn=min_points_per_turn,
             max_points_per_turn=max_points_per_turn,
