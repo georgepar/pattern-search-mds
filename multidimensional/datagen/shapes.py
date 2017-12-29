@@ -1,5 +1,6 @@
 import os
 
+import matplotlib.cm as cm
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -8,6 +9,7 @@ from sklearn.neighbors import NearestNeighbors, radius_neighbors_graph
 from sklearn.utils.graph import  graph_shortest_path
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import pdist, squareform
+from sklearn import datasets
 
 import multidimensional.config as config
 
@@ -17,12 +19,13 @@ class Shape(object):
                  X=None,
                  name='random',
                  seed=42,
-                 n_neighbors=8,
+                 n_neighbors=12,
                  dim=3,
-                 use_noise=True,
+                 use_noise=False,
                  noise_std=1e-2,
                  n_jobs=4):
         np.random.seed(seed)
+        self.seed = seed
         self.name = name
         self.n_neighbors = n_neighbors
         self.dim = dim
@@ -33,6 +36,7 @@ class Shape(object):
         self.geodesic_d = None
         self.use_noise = use_noise
         self.noise_std = noise_std
+        self.color = None
 
     def generate(self, npoints, use_cache=True):
         if (use_cache and
@@ -104,7 +108,7 @@ class Shape(object):
         self._save_data(self.euclidean_d, 'Euclidean_{}.dat')
         self._save_data(self.geodesic_d, 'Geodesic_{}.dat')
 
-    def instance(self, npoints, distance='euclidean'):
+    def instance(self, npoints=0, distance='euclidean'):
         if self.points is None:
             points = self.generate(npoints)
         else:
@@ -137,6 +141,7 @@ class Shape(object):
 
 class Ball(Shape):
     def __init__(self,
+                 X=None,
                  radius=0.9,
                  name='ball',
                  use_noise=True,
@@ -176,6 +181,7 @@ class Ball(Shape):
 
 class Sphere(Shape):
     def __init__(self,
+                 X=None,
                  radius=0.9,
                  name='sphere',
                  use_noise=True,
@@ -213,6 +219,7 @@ class Sphere(Shape):
 
 class CutSphere(Shape):
     def __init__(self,
+                 X=None,
                  radius=0.9,
                  cut_theta=0.5 * np.pi,
                  name='cut-sphere',
@@ -253,6 +260,7 @@ class CutSphere(Shape):
 
 class Spiral(Shape):
     def __init__(self,
+                 X=None,
                  name='spiral',
                  angle_start=np.pi,
                  angle_stop=4*np.pi,
@@ -297,11 +305,13 @@ class Spiral(Shape):
             angle += angle_step
         p = np.array(points)
         self.points = self.noise_round_points(p)
+        self.color = self.points[:, 0]
         return self.points
 
 
 class SpiralHole(Shape):
     def __init__(self,
+                 X=None,
                  name='spiral-with-hole',
                  angle_start=np.pi,
                  angle_stop=4*np.pi,
@@ -355,3 +365,223 @@ class SpiralHole(Shape):
         p = np.array(points)
         self.points = self.noise_round_points(p)
         return self.points
+
+
+class SwissRoll(Shape):
+    def generate(self, npoints, use_cache=True):
+        noise_std = 0 if not self.use_noise else self.noise_std
+        self.points, self.color = datasets.samples_generator.make_swiss_roll(
+            n_samples=npoints, noise=noise_std, random_state=self.seed)
+        return self.points
+
+
+class SCurve(Shape):
+    def generate(self, npoints, use_cache=True):
+        noise_std = 0 if not self.use_noise else self.noise_std
+        self.points, self.color = datasets.samples_generator.make_s_curve(
+            n_samples=npoints, noise=noise_std, random_state=self.seed)
+        return self.points
+
+
+class ToroidalHelix(Shape):
+    def generate(self, npoints, use_cache=True):
+        param = -1
+        t = np.arange(1, npoints) / float(npoints)
+        e_t = t ** (param * 2.0 * np.pi)
+        self.color = e_t
+        p = np.array([
+            (2 + np.cos(8 * e_t)) * np.cos(e_t),
+            (2 + np.cos(8 * e_t)) * np.sin(e_t),
+            np.sin(8 * e_t)]).T
+        self.points = self.noise_round_points(p)
+        return self.points
+
+
+class SwissHole(Shape):
+    def generate(self, npoints, use_cache=True):
+        param = 1
+        tt = (3 * np.pi / 2.0) * (1 + 2.0 * np.random.rand(2 * npoints))
+        h = 21 * np.random.rand(2 * npoints)
+        kl = np.zeros(2 * npoints)
+
+        for ii in range(2 * npoints):
+            if 9 < tt[ii] < 12:
+                if 9 < h[ii] < 14:
+                    kl[ii] = 1
+        tt = tt[kl == 0]
+        h = h[kl == 0]
+        p = np.array([tt * np.cos(tt), h, param * tt * np.sin(tt)]).T
+        self.points = self.noise_round_points(p)
+        self.color = tt
+        return self.points
+
+
+class PuncturedSphere(Shape):
+    def generate(self, npoints, use_cache=True):
+        param = .5
+        inc = 9.0 / np.sqrt(npoints)
+        yy, xx = map(lambda z: z.flatten(),
+                     np.mgrid[-5:5:inc, -5:5:inc])
+        rr2 = xx ** 2 + yy ** 2
+        ii = np.argsort(rr2)
+        y = np.array([xx[ii[:npoints]].T, yy[ii[:npoints]].T])
+        a = 4.0 / (4 + np.sum(y ** 2, axis=0))
+        p = np.array([a * y[0, :], a * y[1, :], param * 2 * (1 - a)]).T
+        self.points = self.noise_round_points(p)
+        self.color = self.points[:, 2]
+        return self.points
+
+
+class CornerPlane(Shape):
+    def generate(self, npoints, use_cache=True):
+        k = 0
+        x_max = int(np.floor(np.sqrt(npoints)))
+        y_max = int(np.ceil(npoints / float(x_max)))
+        corner_point = int(np.floor(y_max / 2.0))
+        p = np.zeros((x_max * y_max, 3))
+        color = np.zeros(x_max * y_max)
+        param = 330
+        for xx in range(0, x_max):
+            for yy in range(0, y_max):
+                if yy <= corner_point:
+                    p[k, :] = np.array([xx, yy, 0])
+                    color[k] = yy
+                else:
+                    p[k, :] = np.array([
+                        xx,
+                        corner_point + (yy - corner_point) * np.cos(param * np.pi / 180),
+                        (yy - corner_point) * np.sin(param * np.pi / 180)])
+                    color[k] = yy
+                k += 1
+        self.points = self.noise_round_points(p)
+        self.color = color
+        return self.points
+
+
+class TwinPeaks(Shape):
+    def generate(self, npoints, use_cache=True):
+        param = 1
+        xy = 1 - 2 * np.random.rand(2, npoints)
+        p = np.array([
+            xy[1, :],
+            xy[0, :],
+            param * np.sin(np.pi * xy[0, :]) * np.tanh(3 * xy[1, :])]
+        ).T
+        self.points = self.noise_round_points(p)
+        self.color = self.points[:, 2]
+        return self.points
+
+
+class Gaussian(Shape):
+    def generate(self, npoints, use_cache=True):
+        param = 1
+        std = param
+        p = std * np.random.randn(npoints, 3)
+        p[:, 2] = (1.0 / ((std ** 2) * 2 * np.pi) * np.exp(
+            (-p[:, 0] ** 2 - p[:, 1] ** 2) / (2 * std ** 2)))
+        self.points = self.noise_round_points(p)
+        self.color = self.points[:, 2]
+        return self.points
+
+
+class Clusters3D(Shape):
+    def generate(self, npoints, use_cache=True):
+        param = 10
+        num_clusters = max(1, param)
+        colors = cm.rainbow(np.linspace(0, 1, num_clusters + 1))
+        centers = 10 * np.random.rand(num_clusters, 3)
+        d = distance_matrix(centers, centers)
+        min_d = np.min(d[d > 0])
+        n2 = npoints - (num_clusters - 1) * 9
+        p = np.zeros((npoints, 3))
+        color = np.zeros((npoints, 4))
+        k = 0
+        for i in range(num_clusters):
+            for j in range(int(np.ceil(n2 / num_clusters))):
+                p[k, :] = (
+                    centers[i, :] +
+                    (np.random.rand(1, 3) - 0.5) * min_d / np.sqrt(12))
+                color[k] = colors[i + 1]
+                k += 1
+            if i < num_clusters - 1:
+                for t in np.arange(0.1, 0.9, 0.1):
+                    p[k, :] = (
+                        centers[i, :] +
+                        (centers[i + 1, :] - centers[i, :]) * t)
+                    color[k] = colors[0]
+                    k = k + 1
+        self.points = self.noise_round_points(p)
+        self.color = color
+        return self.points
+
+
+class DataBuilder(object):
+    def __init__(self):
+        self.shape_map = {
+            'sphere': Sphere,
+            'cut-sphere': CutSphere,
+            'ball': Ball,
+            'random': Shape,
+            'real': Shape,
+            'spiral': Spiral,
+            'spiral-hole': SpiralHole,
+            'swissroll': SwissRoll,
+            'swisshole': SwissHole,
+            'toroid-helix': ToroidalHelix,
+            's-curve': SCurve,
+            'punctured-sphere': PuncturedSphere,
+            'gaussian': Gaussian,
+            'clusters-3d': Clusters3D,
+            'twin-peaks': TwinPeaks,
+            'corner-plane': CornerPlane
+        }
+        self.type = None
+        self.dim = None
+        self.distance = 'euclidean'
+        self.npoints = None
+        self.use_noise = False
+        self.points = None
+        self.n_neighbors = 12
+        self.noise_std = 1e-2
+
+    def with_type(self, t):
+        self.type = t
+        return self
+
+    def with_dim(self, dim):
+        self.dim = dim
+        return self
+
+    def with_distance(self, distance):
+        self.distance = distance
+        return self
+
+    def with_npoints(self, npoints):
+        self.npoints = npoints
+        return self
+
+    def with_noise(self, noise_std):
+        if noise_std == 0:
+            return self
+        self.use_noise = True
+        self.noise_std = noise_std
+        return self
+
+    def with_points(self, points):
+        self.type = 'real'
+        self.points = points
+        return self
+
+    def with_neighbors(self, n_neighbors):
+        self.n_neighbors = n_neighbors
+        return self
+
+    def build(self):
+        shape = self.shape_map[self.type]
+        s = shape(X=self.points,
+                  dim=self.dim,
+                  n_neighbors=self.n_neighbors,
+                  use_noise=self.use_noise,
+                  noise_std=self.noise_std)
+        x, d = s.instance(npoints=self.npoints, distance=self.distance)
+        return x, d, s.color

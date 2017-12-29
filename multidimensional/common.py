@@ -18,6 +18,13 @@ SUM = np.sum
 SQRT = np.sqrt
 
 
+def load_embeddings(data_file):
+    with open(data_file, 'r') as fd:
+        d = [map(float, l.strip().split()[1:]) for l in fd.readlines()]
+        xs = np.array(d)
+    return xs
+
+
 def mkdir_p(path):
     try:
         os.makedirs(path)

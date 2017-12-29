@@ -6,16 +6,17 @@ import os
 from datetime import datetime
 import numpy as np
 from scipy.spatial import distance_matrix
-from scipy.spatial.distance import pdist, squareform
-from sklearn.metrics import euclidean_distances
-import config
+
+# import config
 import common
 import datagen.shapes
-
 import point_filters as pf
 import radius_updates as ru
-import approximate_mds
-from sklearn.manifold import MDS as skMDS
+
+from history import  HistoryObserver
+# import approximate_mds
+# from sklearn.manifold import MDS as skMDS
+
 
 logging.basicConfig()
 LOG = logging.getLogger("MDS")
@@ -33,8 +34,11 @@ class MDS(object):
                  error_barrier=1e-2,
                  radius_barrier=1e-3,
                  explore_dim_percent=.5,
+                 dissimilarities='precomputed',
                  uniform_init=True,
-                 keep_history=True):
+                 history_color=None,
+                 keep_history=True,
+                 history_path=str(datetime.now().strftime("%Y%m%d%H%M%S"))):
         self.target_dimensions = target_dimensions
         self.point_filter = point_filter
         self.radius_update = radius_update
@@ -46,17 +50,11 @@ class MDS(object):
         self.uniform_init = uniform_init
         self.keep_history = keep_history
         self.explore_dim_percent = explore_dim_percent
-        self.history = {}
+        self.num_epochs = 0
+        self.dissimilarities = dissimilarities
         if keep_history:
-            self.history = {
-                'radius': [],
-                'error': [],
-                'xs_files': []
-            }
-            self.history_path = os.path.join(
-                config.HISTORY_DIR,
-                str(datetime.now().strftime("%Y%m%d%H%M%S")))
-            common.mkdir_p(self.history_path)
+            self.history_color = history_color
+            self.history_observer = HistoryObserver(path=history_path)
 
     @staticmethod
     def _log_iteration(turn, radius, prev_error, error):
@@ -64,41 +62,26 @@ class MDS(object):
                  "({2}, {3}, {4})"
                  .format(turn, radius, prev_error, prev_error - error, error))
 
-    @staticmethod
-    def _init_pertubations(dim):
-        return np.concatenate((-np.eye(dim), np.eye(dim)))
-
     def _stop_conditions(self, turn, patience_cnt, error, radius):
         return (turn >= self.max_turns or
                 patience_cnt >= self.patience or
                 error <= self.error_barrier or
                 radius <= self.radius_barrier)
 
-    def _history(self, turn, radius, error, xs):
-
-        xs_file = os.path.join(self.history_path, 'epoch_{}'.format(turn))
-        np.savetxt(xs_file, xs, delimiter=',')
-        self.history['radius'].append(radius)
-        self.history['error'].append(error)
-        self.history['xs_files'].append(xs_file)
-
-    def _history_done(self, turn):
-        cfg_file = os.path.join(self.history_path, 'config')
-        with open(cfg_file, 'w') as fd:
-            fd.writelines([
-                'DIM={}\n'.format(self.target_dimensions),
-                'EPOCHS={}'.format(turn)
-            ])
-
-    @common.timemethod
-    def fit(self, x, d_goal=None, init_x=False):
-        if init_x:
-            xs = x
-        else:
+    def fit(self, x, x_init=None):
+        if self.dissimilarities == 'precomputed':
+            d_goal = x
             xs = common.random_table(x.shape[0],
                                      self.target_dimensions,
                                      uniform=self.uniform_init)
-        d_goal = d_goal if d_goal is not None else distance_matrix(x, x)
+        else:
+            if x_init is not None:
+                xs = x_init
+            else:
+                xs = common.random_table(x.shape[0],
+                                         self.target_dimensions,
+                                         uniform=self.uniform_init)
+            d_goal = distance_matrix(xs, xs)
         d_current = distance_matrix(xs, xs)
         points = np.arange(xs.shape[0])
 
@@ -111,7 +94,7 @@ class MDS(object):
         LOG.info("Starting Error: {}".format(error))
 
         if self.keep_history:
-            self._history(turn, radius, error, xs)
+            self.history_observer.epoch(turn, radius, error, xs)
 
         while not self._stop_conditions(
                 turn, patience_cnt, error, radius):
@@ -139,10 +122,23 @@ class MDS(object):
                 error = test_error
             self._log_iteration(turn, radius, prev_error, error)
             if self.keep_history:
-                self._history(turn, radius, error, xs)
-                self._history_done(turn)
+                self.history_observer.epoch(turn, radius, error, xs)
+        self.num_epochs = turn
         LOG.info("Ending Error: {}".format(error))
         return xs
+
+    @common.timemethod
+    def fit_transform(self, x, x_init=None):
+        return self.fit(x, x_init=x_init)
+
+    def plot_history(self):
+        if self.keep_history:
+            if self.target_dimensions == 2:
+                self.history_observer.plot2d(self.num_epochs,
+                                             color=self.history_color)
+            if self.target_dimensions == 3:
+                self.history_observer.plot3d(self.num_epochs,
+                                             color=self.history_color)
 
 
 @common.timefunc
@@ -158,7 +154,7 @@ if __name__ == '__main__':
         print(X.shape)
     np.random.seed(42)
     shape = datagen.shapes.Shape(X=X, use_noise=False, dim=300)
-    X_real, D_goal = shape.instance(751, distance='euclidean')
+    X_real, D_goal = shape.instance(npoints=751, distance='euclidean')
     print(np.all(X == X_real))
     point_f = pf.FixedStochasticFilter(keep_percent=1)
     rad_up = ru.AdaRadiusHalving(tolerance=.5 * 1e-3)

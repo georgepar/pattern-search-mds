@@ -49,11 +49,12 @@ class StoredMetrics(object):
         }
         plt.hold(True)
         for exp_name, axes in metrics.items():
-            label = '{}, Final Turn: {}, Final Error: {}'.format(
+            label = '{}, #Epochs: {}, Final Error: {}'.format(
                 exp_name, axes['x'][-1], axes['y'][-1])
             plt.plot(axes['x'], axes['y'], label=label)
-        plt.title("Compare {} for {}".format(
+        plt.title("Convergenge of {} for {}".format(
             metric_name, self.experiment_description))
+        plt.yscale('log')
         plt.ylabel(metric_name)
         plt.xlabel('Epochs')
         plt.legend(loc='best')

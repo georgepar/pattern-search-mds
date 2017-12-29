@@ -84,6 +84,38 @@ cpdef double mse2(nd_arr[np.float64_t, ndim=2] d_goal, nd_arr[np.float64_t, ndim
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
+cpdef double l1e(nd_arr[np.float64_t, ndim=1] d_goal, nd_arr[np.float64_t, ndim=1] d):
+    cdef:
+        Py_ssize_t N = d.shape[0]
+        Py_ssize_t ii = 0
+
+        double s = 0, diff = 0
+
+    for ii in range(N):
+        diff = d_goal[ii] - d[ii]
+        diff = diff if diff >= 0 else -diff
+        s += diff
+    return s
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef double l1e2(nd_arr[np.float64_t, ndim=2] d_goal, nd_arr[np.float64_t, ndim=2] d):
+    cdef:
+        Py_ssize_t N = d.shape[0]
+        Py_ssize_t ii = 0
+
+        double s = 0, diff = 0
+
+    for ii in range(N):
+        for jj in range(ii + 1):
+            diff = d_goal[ii, jj] - d[ii, jj]
+            diff = diff if diff >= 0 else -diff
+            s += diff
+    return s
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
 cpdef nd_arr[np.float64_t, ndim=2] update_distance_matrix(
         nd_arr[np.float64_t, ndim=2] xs,
         nd_arr[np.float64_t, ndim=2] d_current,
