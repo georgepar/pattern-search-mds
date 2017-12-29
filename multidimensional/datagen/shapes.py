@@ -5,13 +5,15 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 from mpl_toolkits.mplot3d import Axes3D
-from sklearn.neighbors import NearestNeighbors, radius_neighbors_graph
+from sklearn.neighbors import (
+    NearestNeighbors, radius_neighbors_graph, kneighbors_graph)
 from sklearn.utils.graph import  graph_shortest_path
 from scipy.spatial import distance_matrix
 from scipy.spatial.distance import pdist, squareform
 from sklearn import datasets
 
 import multidimensional.config as config
+import multidimensional.common as common
 
 
 class Shape(object):
@@ -61,7 +63,7 @@ class Shape(object):
             return self.euclidean_d
         if points is None:
             points = self.points
-        self.euclidean_d = distance_matrix(points, points)
+        self.euclidean_d = common.DISTANCE_MATRIX(points)
         return self.euclidean_d
 
     def sqeuclidean_distances(self, points=None, use_cache=True):
@@ -77,23 +79,27 @@ class Shape(object):
             return self.geodesic_d
         if points is None:
             points = self.points
-        dist = self.euclidean_distances()
-        nbrs_inc = np.argsort(dist, axis=1)
-        max_dist = -1
-        for i in range(dist.shape[0]):
-            achieved_neighbors = 0
-            while achieved_neighbors < min(self.n_neighbors, dist.shape[0]):
-                j = achieved_neighbors
-                if max_dist < dist[i][nbrs_inc[i][j]]:
-                    max_dist = dist[i][nbrs_inc[i][j]]
-                achieved_neighbors += 1
+        #dist = self.euclidean_distances()
+        #nbrs_inc = np.argsort(dist, axis=1)
+        #max_dist = -1
+        #for i in range(dist.shape[0]):
+        #    achieved_neighbors = 0
+        #    while achieved_neighbors < min(self.n_neighbors, dist.shape[0]):
+        #        j = achieved_neighbors
+        #        if max_dist < dist[i][nbrs_inc[i][j]]:
+        #            max_dist = dist[i][nbrs_inc[i][j]]
+        #        achieved_neighbors += 1
         nbrs = (NearestNeighbors(algorithm='auto',
                                  n_neighbors=self.n_neighbors,
-                                 radius=max_dist,
+                                 #radius=max_dist,
                                  n_jobs=self.n_jobs)
                 .fit(points))
-        kng = radius_neighbors_graph(
-            nbrs, max_dist, mode='distance', n_jobs=self.n_jobs)
+        #kng = radius_neighbors_graph(
+        #    nbrs, max_dist, mode='distance', n_jobs=self.n_jobs)
+        kng = kneighbors_graph(nbrs,
+                               self.n_neighbors,
+                               mode='distance',
+                               n_jobs=self.n_jobs)
         self.geodesic_d = graph_shortest_path(kng, method='D', directed=False)
         return self.geodesic_d
 
@@ -490,7 +496,7 @@ class Clusters3D(Shape):
         num_clusters = max(1, param)
         colors = cm.rainbow(np.linspace(0, 1, num_clusters + 1))
         centers = 10 * np.random.rand(num_clusters, 3)
-        d = distance_matrix(centers, centers)
+        d = common.DISTANCE_MATRIX(centers)
         min_d = np.min(d[d > 0])
         n2 = npoints - (num_clusters - 1) * 9
         p = np.zeros((npoints, 3))
@@ -582,6 +588,7 @@ class DataBuilder(object):
                   dim=self.dim,
                   n_neighbors=self.n_neighbors,
                   use_noise=self.use_noise,
-                  noise_std=self.noise_std)
+                  noise_std=self.noise_std,
+                  n_jobs=4)
         x, d = s.instance(npoints=self.npoints, distance=self.distance)
         return x, d, s.color

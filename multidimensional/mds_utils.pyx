@@ -2,6 +2,7 @@ import numpy as np
 cimport numpy as np
 cimport cython
 from numpy cimport ndarray as nd_arr
+from cython.parallel cimport prange
 
 # don't use np.sqrt - the sqrt function from the C standard library is much
 # faster
@@ -10,7 +11,31 @@ from libc.math cimport sqrt
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
-cpdef nd_arr[np.float64_t, ndim=1] dist_from_point(nd_arr[np.float64_t, ndim=2] x, nd_arr[np.float64_t, ndim=1] y):
+def distance_matrix(double [:, :] A):
+    cdef:
+        Py_ssize_t nrow = A.shape[0]
+        Py_ssize_t ncol = A.shape[1]
+        Py_ssize_t ii, jj, kk
+        np.ndarray[np.float64_t, ndim=2] D = np.zeros((nrow, nrow), np.double)
+        double tmpss, diff
+
+    #for ii in range(nrow):
+    for ii in prange(nrow, nogil=True, schedule='guided'):
+        for jj in range(ii + 1, nrow):
+            tmpss = 0
+            for kk in range(ncol):
+                diff = A[ii, kk] - A[jj, kk]
+                tmpss += diff * diff
+            tmpss = sqrt(tmpss)
+            D[ii, jj] = tmpss
+            D[jj, ii] = tmpss
+    return D
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef nd_arr[np.float64_t, ndim=1] dist_from_point(
+        nd_arr[np.float64_t, ndim=2] x, nd_arr[np.float64_t, ndim=1] y):
     cdef:
         Py_ssize_t nrow = x.shape[0]
         Py_ssize_t ncol = y.shape[0]
@@ -20,7 +45,8 @@ cpdef nd_arr[np.float64_t, ndim=1] dist_from_point(nd_arr[np.float64_t, ndim=2] 
 
         nd_arr[np.float64_t, ndim=1] d = np.zeros(nrow, np.double)
 
-    for ii in range(nrow):
+    # for ii in range(nrow):
+    for ii in prange(nrow, nogil=True, schedule='guided'):
         s = 0
         for jj in range(ncol):
             diff = x[ii, jj] - y[jj]
@@ -158,8 +184,10 @@ cpdef (double, int, double) pertub_error(nd_arr[np.float64_t, ndim=2] xs,
         double e = 0
         double d_temp = 0
 
-    if step_size >= 50:
-        ks = np.random.choice(np.arange(0, 2 * step_size), size=int(2 * percent * step_size), replace=False)
+    if step_size >= 30:
+        ks = np.random.choice(np.arange(0, 2 * step_size),
+                              size=int(2 * percent * step_size),
+                              replace=False)
     else:
         ks = np.arange(0, 2 * step_size)
 

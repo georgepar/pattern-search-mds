@@ -8,7 +8,7 @@ import numpy as np
 from scipy.spatial import distance_matrix
 import mds_utils
 
-
+DISTANCE_MATRIX = mds_utils.distance_matrix
 UPDATE_DISTANCE_MATRIX = mds_utils.update_distance_matrix
 BEST_PERTUBATION = mds_utils.pertub_error
 NORMR = mds_utils.dist_from_point

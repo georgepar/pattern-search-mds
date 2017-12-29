@@ -24,38 +24,39 @@ import multidimensional.datagen.shapes as datagen
 
 import config
 
-EXPERIMENT_NAME = 'Swissroll'
+EXPERIMENT_NAME = 'Swissroll_huge'
 
 KEEP_HISTORY = False
 
 ex = Experiment(EXPERIMENT_NAME)
 ex.observers.append(MongoObserver.create(
     url=config.SACRED_MONGO_URL,
-    db_name=config.SACRED_DB
+    #db_name=config.SACRED_DB
+    db_name='test'
 ))
 
 
-RESULT_IMAGE = 'punctured_sphere_noise.png'
+RESULT_IMAGE = 'toroid_helix_sample.png'
 
 @ex.config
 def cfg():
     data_file = None # os.path.join(config.DATA_DIR, 'glove.men.300d.txt')
-    data_type = 'punctured-sphere' # 'toroid-helix'
+    data_type = 'swisshole' # 'toroid-helix'
     dim = 100
     distance = 'geodesic'
     npoints = 1000
     n_neighbors = 12
-    noise_std = 1e-2
+    noise_std = 0
     target_dim = 2
     point_filter = (multidimensional
                     .point_filters
-                    .FixedStochasticFilter(keep_percent=1))
+                    .FixedStochasticFilter(keep_percent=.1))
     radius_update = (multidimensional
                      .radius_updates
                      .AdaRadiusHalving(tolerance=1e-3))
     radius_barrier = 1e-3
     explore_dim_percent = 1
-    starting_radius = 1
+    starting_radius = 16
     max_turns = 10000
 
 

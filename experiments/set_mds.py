@@ -29,18 +29,18 @@ KEEP_HISTORY = True
 ex = Experiment(EXPERIMENT_NAME)
 ex.observers.append(MongoObserver.create(
     url=config.SACRED_MONGO_URL,
-    db_name=config.SACRED_DB
-    #db_name='test'
+    #db_name=config.SACRED_DB
+    db_name='test'
 ))
 
 
 @ex.config
 def cfg():
     data_file = None # os.path.join(config.DATA_DIR, 'glove.men.300d.txt')
-    data_type = 'gaussian' # 'toroid-helix'
+    data_type = 'swissroll' # 'toroid-helix'
     dim = 100
     distance = 'geodesic'
-    npoints = 5000
+    npoints = 1000
     n_neighbors = 12
     noise_std = 0
     target_dim = 2
@@ -52,7 +52,7 @@ def cfg():
                      .AdaRadiusHalving(tolerance=1e-3))
     radius_barrier = 1e-3
     explore_dim_percent = 1
-    starting_radius = 8
+    starting_radius = 16
     max_turns = 10000
 
 

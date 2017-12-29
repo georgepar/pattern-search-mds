@@ -81,8 +81,8 @@ class MDS(object):
                 xs = common.random_table(x.shape[0],
                                          self.target_dimensions,
                                          uniform=self.uniform_init)
-            d_goal = distance_matrix(xs, xs)
-        d_current = distance_matrix(xs, xs)
+            d_goal = common.DISTANCE_MATRIX(xs)
+        d_current = common.DISTANCE_MATRIX(xs)
         points = np.arange(xs.shape[0])
 
         radius = self.starting_radius
