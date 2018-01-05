@@ -10,7 +10,7 @@ from matplotlib.ticker import NullFormatter
 import numpy as np
 from sacred import Experiment
 from sacred.observers import MongoObserver
-from sklearn import manifold
+from sklearn import manifold, decomposition
 
 sys.path.append('../')
 
@@ -36,21 +36,38 @@ ex.observers.append(MongoObserver.create(
 ))
 
 
-RESULT_IMAGE = 'toroid_helix_sample.png'
+RESULT_IMAGE = 'corner_plane.png'
 
 @ex.config
 def cfg():
-    data_file = None # os.path.join(config.DATA_DIR, 'glove.men.300d.txt')
-    data_type = 'swisshole' # 'toroid-helix'
-    dim = 100
+    data_type = 'corner-plane' # 'toroid-helix'
+    # {
+    #     'sphere': Sphere,
+    #     'cut-sphere': CutSphere,
+    #     'ball': Ball,
+    #     'random': Shape,
+    #     'real': Shape,
+    #     'spiral': Spiral,
+    #     'spiral-hole': SpiralHole,
+    #     'swissroll': SwissRoll,
+    #     'swisshole': SwissHole,
+    #     'toroid-helix': ToroidalHelix,
+    #     's-curve': SCurve,
+    #     'punctured-sphere': PuncturedSphere,
+    #     'gaussian': Gaussian,
+    #     'clusters-3d': Clusters3D,
+    #     'twin-peaks': TwinPeaks,
+    #     'corner-plane': CornerPlane
+    # }
+    dim = 3
     distance = 'geodesic'
-    npoints = 1000
-    n_neighbors = 12
+    npoints = 3000
+    n_neighbors = 30
     noise_std = 0
     target_dim = 2
     point_filter = (multidimensional
                     .point_filters
-                    .FixedStochasticFilter(keep_percent=.1))
+                    .FixedStochasticFilter(keep_percent=1))
     radius_update = (multidimensional
                      .radius_updates
                      .AdaRadiusHalving(tolerance=1e-3))
@@ -62,13 +79,11 @@ def cfg():
 
 @ex.automain
 def experiment(
-        data_file, data_type, dim, distance, npoints, n_neighbors,
+        data_type, dim, distance, npoints, n_neighbors,
         noise_std, target_dim, point_filter, radius_update, radius_barrier,
         explore_dim_percent, starting_radius, max_turns, _run):
-    xs = None
-    if data_file is not None:
-        xs = multidimensional.common.load_embeddings(data_file)
 
+    xs = None
     xs, d_goal, color = (datagen.DataBuilder()
                          .with_dim(dim)
                          .with_distance(distance)
@@ -108,6 +123,13 @@ def experiment(
                                         eigen_solver='auto',
                                         method='ltsa'),
         xs)
+
+    PCA = dim_reduction(
+        'Truncated SVD',
+        decomposition.TruncatedSVD(n_components=target_dim),
+        xs
+    )
+
     HessianLLE = dim_reduction(
         'HessianLLE',
         manifold.LocallyLinearEmbedding(n_neighbors,
@@ -144,11 +166,10 @@ def experiment(
         manifold.TSNE(n_components=target_dim, init='pca', random_state=0),
         xs)
 
-    methods = [MDS_proposed, mds, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
-
+    methods = [PCA, MDS_proposed, mds, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
     fig = plt.figure(figsize=(20, 10))
-    plt.suptitle("Manifold Learning with %i points, %i neighbors, %.3f noise"
-                 % (npoints, n_neighbors, noise_std), fontsize=14)
+    plt.suptitle("Learning %s with %i points, %.3f noise"
+                 % (data_type, npoints, noise_std), fontsize=14)
     ax = fig.add_subplot(251, projection='3d')
     ax.scatter(xs[:, 0], xs[:, 1], xs[:, 2], c=color, cmap=plt.cm.Spectral)
     plt.title("Original Manifold")
@@ -166,6 +187,7 @@ def experiment(
             ax.xaxis.set_major_formatter(NullFormatter())
             ax.yaxis.set_major_formatter(NullFormatter())
             plt.axis('tight')
+            #plt.show()
             # With high noise level, some of the models fail.
         except Exception as e:
             print(e)

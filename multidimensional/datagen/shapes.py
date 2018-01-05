@@ -32,12 +32,12 @@ class Shape(object):
         self.n_neighbors = n_neighbors
         self.dim = dim
         self.n_jobs = n_jobs
-        self.points = X
         self.euclidean_d = None
         self.sqeuclidean_d = None
         self.geodesic_d = None
         self.use_noise = use_noise
         self.noise_std = noise_std
+        self.points = self.add_noise(X)
         self.color = None
 
     def generate(self, npoints, use_cache=True):
@@ -47,6 +47,12 @@ class Shape(object):
             return self.points
         self.points = np.random.rand(npoints, self.dim)
         return self.points
+
+    def add_noise(self, x):
+        if self.use_noise:
+            n = np.random.normal(0, self.noise_std, x.shape)
+            x = x + n
+        return x
 
     def noise_round_points(self, p):
         if self.use_noise:
@@ -79,23 +85,64 @@ class Shape(object):
             return self.geodesic_d
         if points is None:
             points = self.points
-        #dist = self.euclidean_distances()
-        #nbrs_inc = np.argsort(dist, axis=1)
-        #max_dist = -1
-        #for i in range(dist.shape[0]):
-        #    achieved_neighbors = 0
-        #    while achieved_neighbors < min(self.n_neighbors, dist.shape[0]):
-        #        j = achieved_neighbors
-        #        if max_dist < dist[i][nbrs_inc[i][j]]:
-        #            max_dist = dist[i][nbrs_inc[i][j]]
-        #        achieved_neighbors += 1
+        dist = self.euclidean_distances()
+        nbrs_inc = np.argsort(dist, axis=1)
+        max_dist = -1
+        for i in range(dist.shape[0]):
+            achieved_neighbors = 0
+            while achieved_neighbors < min(self.n_neighbors, dist.shape[0]):
+                j = achieved_neighbors
+                if max_dist < dist[i][nbrs_inc[i][j]]:
+                    max_dist = dist[i][nbrs_inc[i][j]]
+                achieved_neighbors += 1
         nbrs = (NearestNeighbors(algorithm='auto',
                                  n_neighbors=self.n_neighbors,
-                                 #radius=max_dist,
+                                 radius=max_dist,
                                  n_jobs=self.n_jobs)
                 .fit(points))
-        #kng = radius_neighbors_graph(
-        #    nbrs, max_dist, mode='distance', n_jobs=self.n_jobs)
+        kng = radius_neighbors_graph(
+           nbrs, max_dist, mode='distance', n_jobs=self.n_jobs)
+        # kng = kneighbors_graph(nbrs,
+        #                        self.n_neighbors,
+        #                        mode='distance',
+        #                        n_jobs=self.n_jobs)
+        self.geodesic_d = graph_shortest_path(kng, method='D', directed=False)
+        return self.geodesic_d
+
+    def geodesic_radius(self, points=None, use_cache=True):
+        if use_cache and self.geodesic_d is not None:
+            return self.geodesic_d
+        if points is None:
+            points = self.points
+        dist = self.euclidean_distances()
+        nbrs_inc = np.argsort(dist, axis=1)
+        max_dist = -1
+        for i in range(dist.shape[0]):
+            achieved_neighbors = 0
+            while achieved_neighbors < min(self.n_neighbors, dist.shape[0]):
+                j = achieved_neighbors
+                if max_dist < dist[i][nbrs_inc[i][j]]:
+                    max_dist = dist[i][nbrs_inc[i][j]]
+                achieved_neighbors += 1
+        nbrs = (NearestNeighbors(algorithm='auto',
+                                 n_neighbors=self.n_neighbors,
+                                 radius=max_dist,
+                                 n_jobs=self.n_jobs)
+                .fit(points))
+        kng = radius_neighbors_graph(
+           nbrs, max_dist, mode='distance', n_jobs=self.n_jobs)
+        self.geodesic_d = graph_shortest_path(kng, method='D', directed=False)
+        return self.geodesic_d
+
+    def geodesic_neighbors(self, points=None, use_cache=True):
+        if use_cache and self.geodesic_d is not None:
+            return self.geodesic_d
+        if points is None:
+            points = self.points
+        nbrs = (NearestNeighbors(algorithm='auto',
+                                 n_neighbors=self.n_neighbors,
+                                 n_jobs=self.n_jobs)
+                .fit(points))
         kng = kneighbors_graph(nbrs,
                                self.n_neighbors,
                                mode='distance',
@@ -114,7 +161,7 @@ class Shape(object):
         self._save_data(self.euclidean_d, 'Euclidean_{}.dat')
         self._save_data(self.geodesic_d, 'Geodesic_{}.dat')
 
-    def instance(self, npoints=0, distance='euclidean'):
+    def instance(self, npoints=0, distance='euclidean', geomethod='neigh'):
         if self.points is None:
             points = self.generate(npoints)
         else:
@@ -124,7 +171,10 @@ class Shape(object):
         elif distance == 'sqeuclidean':
             dist = self.sqeuclidean_distances()
         else:
-            dist = self.geodesic_distances()
+            if geomethod == 'radius':
+                dist = self.geodesic_radius()
+            else:
+                dist = self.geodesic_neighbors()
         return points, dist
 
     def plot3d(self):
@@ -272,7 +322,7 @@ class Spiral(Shape):
                  angle_stop=4*np.pi,
                  r_stop=0.9,
                  r_start=0.1,
-                 depth=10,
+                 depth=12,
                  use_noise=True,
                  noise_std=1e-2,
                  seed=42,

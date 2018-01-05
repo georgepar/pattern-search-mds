@@ -91,6 +91,7 @@ class MDS(object):
         patience_cnt = 0
         error = common.MSE2(d_goal, d_current)
         prev_error = np.Inf
+        #errors = np.zeros(xs.shape[0])
         LOG.info("Starting Error: {}".format(error))
 
         if self.keep_history:

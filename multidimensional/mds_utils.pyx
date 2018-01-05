@@ -9,6 +9,23 @@ from cython.parallel cimport prange
 from libc.math cimport sqrt
 
 
+cdef extern from "parallel_utils.h":
+    cdef struct pertub_res:
+        int k
+        double step
+        double error
+
+    ctypedef pertub_res pertub_res_t
+
+cdef extern pertub_res min_pertub_error(double* xs, double radius, double* d_current,
+             double* d_goal, int ii, int x_rows, int x_cols, double percent)
+
+
+cdef extern double single_pertub_error(double* d_current, double* d_goal,
+            double* xs, int row, int pertub_dim,
+            int x_rows, int x_cols, double step)
+
+
 @cython.boundscheck(False)
 @cython.wraparound(False)
 def distance_matrix(double [:, :] A):
@@ -19,8 +36,8 @@ def distance_matrix(double [:, :] A):
         np.ndarray[np.float64_t, ndim=2] D = np.zeros((nrow, nrow), np.double)
         double tmpss, diff
 
-    #for ii in range(nrow):
-    for ii in prange(nrow, nogil=True, schedule='guided'):
+    for ii in range(nrow):
+    # for ii in prange(nrow, nogil=True, schedule='guided'):
         for jj in range(ii + 1, nrow):
             tmpss = 0
             for kk in range(ncol):
@@ -173,9 +190,9 @@ cpdef (double, int, double) pertub_error(nd_arr[np.float64_t, ndim=2] xs,
                                   int ii,
                                   double percent=.5):
     cdef:
-        Py_ssize_t step_size = xs.shape[1]
-        Py_ssize_t x_rows = xs.shape[0]
-        Py_ssize_t jj, kk, ll
+        int step_size = xs.shape[1]
+        int x_rows = xs.shape[0]
+        int jj, kk, ll
 
 
         double optimum_error = np.Inf
@@ -184,7 +201,7 @@ cpdef (double, int, double) pertub_error(nd_arr[np.float64_t, ndim=2] xs,
         double e = 0
         double d_temp = 0
 
-    if step_size >= 30:
+    if step_size >= 25:
         ks = np.random.choice(np.arange(0, 2 * step_size),
                               size=int(2 * percent * step_size),
                               replace=False)
@@ -208,3 +225,41 @@ cpdef (double, int, double) pertub_error(nd_arr[np.float64_t, ndim=2] xs,
             optimum_k = kk
             optimum_step = step
     return optimum_error, optimum_k, optimum_step
+
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef (double, int, double) c_pertub_error(
+    nd_arr[np.float64_t, ndim=2, mode="c"] xs,
+    double radius,
+    nd_arr[np.float64_t, ndim=2, mode="c"] d_current,
+    nd_arr[np.float64_t, ndim=2, mode="c"] d_goal,
+    int ii,
+    double percent=.5):
+    cdef:
+        int x_cols = xs.shape[1]
+        int x_rows = xs.shape[0]
+        int jj, kk, ll
+
+        double e = 0
+        double d_temp = 0
+
+    cdef:
+        pertub_res optimum = min_pertub_error(
+            &xs[0,0], radius, &d_current[0, 0],
+            &d_goal[0, 0], ii, x_rows, x_cols, percent)
+        double optimum_error = optimum.error
+        int optimum_k = optimum.k
+        double optimum_step = optimum.step
+
+    return optimum_error, optimum_k, optimum_step
+
+    # for jj in ks:
+    #     step = radius if jj < step_size else -radius
+    #     kk = jj % step_size
+    #     e = single_pertub_error(&d_current[0, 0], &d_goal[0, 0], &xs[0, 0], ii, kk, x_rows, step_size, step)
+    #     if e < optimum_error:
+    #         optimum_error = e
+    #         optimum_k = kk
+    #         optimum_step = step
+    # return optimum_error, optimum_k, optimum_step

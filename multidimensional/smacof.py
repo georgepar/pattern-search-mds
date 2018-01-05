@@ -17,6 +17,7 @@ from sklearn.externals.joblib import delayed
 from sklearn.isotonic import IsotonicRegression
 
 from multidimensional.history import HistoryObserver
+import multidimensional.common
 
 
 def _smacof_single(dissimilarities, metric=True, n_components=2, init=None,
@@ -317,6 +318,7 @@ class MDS(BaseEstimator):
         self.verbose = verbose
         self.n_jobs = n_jobs
         self.random_state = random_state
+        self.history_observer = None
         if history_path is not None:
             self.history_observer = HistoryObserver(path=history_path)
 
@@ -341,6 +343,7 @@ class MDS(BaseEstimator):
         self.fit_transform(X, init=init)
         return self
 
+    @multidimensional.common.timefunc
     def fit_transform(self, X, y=None, init=None):
         """
         Fit the data from X, and returns the embedded coordinates
