@@ -1,1 +1,1 @@
-mnist==0.2.1
+python_mnist==0.5
