@@ -7,6 +7,7 @@ labels available.
 
 import argparse
 from mnist import MNIST
+import numpy as np
 import os 
 
 def safe_mkdirs(path):
@@ -46,6 +47,12 @@ def load_MNIST_data(MNIST_dir):
 
     return train_images, train_labels, test_images, test_labels
 
+def convert_data_2_numpy_arrays(mndata):
+    """Convert data from list of lists and array.array to numpy"""
+
+    converted_data = [np.array(x,dtype=np.uint8) for x in mndata]
+    return converted_data
+
 def convert_MNIST_dataset_to_numpys(MNIST_dir, converted_MNIST_dir):
     """!
     \brief Converts the data in mnist images and labels which are in 
@@ -58,8 +65,12 @@ def convert_MNIST_dataset_to_numpys(MNIST_dir, converted_MNIST_dir):
     safe_mkdirs(converted_MNIST_dir)
 
     mndata = load_MNIST_data(MNIST_dir)
-    train_images, train_labels, test_images, test_labels = mndata
 
+    converted_data = convert_data_2_numpy_arrays(mndata)
+    train_images, train_labels, test_images, test_labels=converted_data
+
+    print train_images.dtype, train_images.shape
+    print train_labels.dtype, train_labels.shape
 
 def get_args():
     """! Command line parser """
