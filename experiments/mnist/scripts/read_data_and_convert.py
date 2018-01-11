@@ -26,6 +26,26 @@ def safe_mkdirs(path):
                 )
             )
 
+def load_MNIST_data(MNIST_dir):
+    """!
+    \brief Loads MNIST data using python-mnist library from the given
+    MNIST_dir"""
+
+    mndata = MNIST(MNIST_dir)
+    mndata.gz=True
+    train_images, train_labels = mndata.load_training()
+    test_images, test_labels = mndata.load_testing()
+
+    if (not len(test_images) == len(test_labels) or 
+        not len(test_images) == 10000):
+        raise ValueError("MNIST test data loaded should be 10000")
+
+    if (not len(train_images) == len(train_labels) or 
+        not len(train_images) == 60000):
+        raise ValueError("MNIST test data loaded should be 10000")
+
+    return train_images, train_labels, test_images, test_labels
+
 def convert_MNIST_dataset_to_numpys(MNIST_dir, converted_MNIST_dir):
     """!
     \brief Converts the data in mnist images and labels which are in 
@@ -37,20 +57,16 @@ def convert_MNIST_dataset_to_numpys(MNIST_dir, converted_MNIST_dir):
     """
     safe_mkdirs(converted_MNIST_dir)
 
-    mndata = MNIST(MNIST_dir)
-    mndata.gz=True
-    images, labels = mndata.load_training()
+    mndata = load_MNIST_data(MNIST_dir)
+    train_images, train_labels, test_images, test_labels = mndata
 
-    print type(images)
-    print type(labels)
-
-    print images[0]
-    print len(labels)
 
 def get_args():
     """! Command line parser """
     parser = argparse.ArgumentParser(
-        description='MNIST Dataset Reader and Converter' )
+        description="""MNIST Dataset Reader and Converter. Warning be
+        careful to <pip install python-mnist> but without mnist 
+        package. Thus you can simply <pip uninstall mnist>.""" )
     parser.add_argument("--MNIST_dir", type=str, 
         help="""Path that MNIST data are stored""", 
         default='../dataset/')
