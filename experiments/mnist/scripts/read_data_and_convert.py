@@ -10,6 +10,21 @@ from mnist import MNIST
 import numpy as np
 import os 
 
+try:
+    import cPickle as pickle
+except ImportError:
+    import pickle
+
+def save_obj(obj, path):
+    """Pickle Data Writer"""
+    with open(path, 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+def load_obj(path):
+    """Pickle Data Loader"""
+    with open(path, 'rb') as f:
+        return pickle.load(f)
+
 def safe_mkdirs(path):
     """! Makes recursively all the directory in input path
 
@@ -67,10 +82,34 @@ def convert_MNIST_dataset_to_numpys(MNIST_dir, converted_MNIST_dir):
     mndata = load_MNIST_data(MNIST_dir)
 
     converted_data = convert_data_2_numpy_arrays(mndata)
+
     train_images, train_labels, test_images, test_labels=converted_data
 
-    print train_images.dtype, train_images.shape
-    print train_labels.dtype, train_labels.shape
+    train_images = train_images.astype(np.float32)/255
+    test_images = test_images.astype(np.float32)/255
+
+    print "Loaded MNIST Dataset:"
+    print ("Train Images and Labels have shapes: {} {} respectively"
+    "".format(train_images.dtype, train_images.shape))
+    print ("Test Images and Labels have shapes: {} {} respectively"
+    "".format(test_images.dtype, test_images.shape))
+
+    return train_images, train_labels, test_images, test_labels
+
+def convert_MNIST_dataset_and_save(args):
+
+    d = {}
+    (d['train_images'], d['train_labels'], 
+    d['test_images'], d['test_labels']) = (
+                                    convert_MNIST_dataset_to_numpys(
+                                    args.MNIST_dir, 
+                                    args.converted_MNIST_dir) )
+
+    for k in d:
+        save_path = os.path.join(args.converted_MNIST_dir,k)
+        save_obj(d[k], save_path)
+
+
 
 def get_args():
     """! Command line parser """
@@ -91,5 +130,4 @@ def get_args():
 
 if __name__ == "__main__":
     args = get_args()
-    convert_MNIST_dataset_to_numpys(args.MNIST_dir, 
-                                    args.converted_MNIST_dir)
+    convert_MNIST_dataset_and_save(args)
