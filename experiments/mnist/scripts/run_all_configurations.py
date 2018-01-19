@@ -11,8 +11,9 @@ if __name__ == '__main__':
     train_images, train_labels, test_images, test_labels = mnistdata
 
     n_samples, initial_dim = test_images.shape
-    n_samples = 100
+    n_samples = 200
     exp_images = test_images[:n_samples]
+    exp_labels = test_labels[:n_samples]
 
     for target_dim in target_dimensions:
         # ex.observers.append(MongoObserver.create())
@@ -20,4 +21,8 @@ if __name__ == '__main__':
         ex.run( config_updates = {'target_dim' : target_dim,
                                   'data': exp_images,
                                   'initial_dim': initial_dim,
-                                  'n_samples': n_samples} )   
+                                  'n_samples': n_samples,
+                                  'labels': exp_labels, 
+                                  'n_folds': 10,
+                                  'knn_algo': 'brute',
+                                  'n_neighbors': 1})   
