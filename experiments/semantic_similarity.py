@@ -76,12 +76,12 @@ def cfg():
     dim = 300
     distance = 'euclidean'
     npoints = 1577
-    n_neighbors = 12
+    n_neighbors = 66
     noise_std = 0
-    target_dim = 50
+    target_dim = 10
     point_filter = (multidimensional
                     .point_filters
-                    .FixedStochasticFilter(keep_percent=1, recalculate_each=10))
+                    .FixedStochasticFilter(keep_percent=1, recalculate_each=100000))
     radius_update = (multidimensional
                      .radius_updates
                      .AdaRadiusHalving(tolerance=.5*1e-3, burnout_tolerance=100000))
@@ -249,7 +249,7 @@ def experiment(
         manifold.TSNE(n_components=target_dim, init='pca', random_state=0),
         xs)
 
-    methods = [original, original_small, PCA, MDS_proposed, mds, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
+    methods = [HessianLLE]
 
     res = {}
     for method in methods:
@@ -262,11 +262,11 @@ def experiment(
             res[method.name]['simlex'] = semantic_similarity(method.name, simlex, words, x)
 
             print("Model: {}\t result:{}".format(method.name, res))
-        except:
-            print("{} did not run".format(method.name))
+        except Exception as e:
+            print(e)
 
     with open('semantic_similarity1.json', 'w') as fd:
-        json.dump(res, fd)
+        json.dump(res, fd, indent=4, sort_keys=True)
     # m.plot_history()
 
     # history = m.history_observer.history

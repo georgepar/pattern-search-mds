@@ -5,6 +5,7 @@ import sys
 import time
 
 import matplotlib.pyplot as plt
+import matplotlib
 from matplotlib.ticker import NullFormatter
 
 import numpy as np
@@ -24,6 +25,7 @@ import multidimensional.datagen.shapes as datagen
 
 import config
 
+
 EXPERIMENT_NAME = 'Swissroll_huge'
 
 KEEP_HISTORY = False
@@ -36,11 +38,11 @@ ex.observers.append(MongoObserver.create(
 ))
 
 
-RESULT_IMAGE = 'corner_plane.png'
+RESULT_IMAGE = 't.png'
 
 @ex.config
 def cfg():
-    data_type = 'corner-plane' # 'toroid-helix'
+    data_type = 'swisshole' # 'toroid-helix'
     # {
     #     'sphere': Sphere,
     #     'cut-sphere': CutSphere,
@@ -73,7 +75,7 @@ def cfg():
                      .AdaRadiusHalving(tolerance=1e-3))
     radius_barrier = 1e-3
     explore_dim_percent = 1
-    starting_radius = 16
+    starting_radius = 512
     max_turns = 10000
 
 
@@ -95,7 +97,7 @@ def experiment(
                          .build())
     dim_reduction = namedtuple('dim_reduction', 'name method data')
     MDS_proposed = dim_reduction(
-        'MDS proposed',
+        'MDS (proposed)',
         multidimensional.mds.MDS(
             target_dim,
             point_filter,
@@ -166,36 +168,39 @@ def experiment(
         manifold.TSNE(n_components=target_dim, init='pca', random_state=0),
         xs)
 
-    methods = [PCA, MDS_proposed, mds, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
-    fig = plt.figure(figsize=(20, 10))
-    plt.suptitle("Learning %s with %i points, %.3f noise"
-                 % (data_type, npoints, noise_std), fontsize=14)
-    ax = fig.add_subplot(251, projection='3d')
+    methods = [MDS_proposed, mds, PCA, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
+    #methods = [HessianLLE, LTSA]
+    fig = plt.figure(figsize=(20, 20))
+
+    #plt.suptitle("Learning %s with %i points, %.3f noise"
+    #             % (data_type, npoints, noise_std), fontsize=14)
+    ax = fig.add_subplot(331, projection='3d', aspect=1)
     ax.scatter(xs[:, 0], xs[:, 1], xs[:, 2], c=color, cmap=plt.cm.Spectral)
-    plt.title("Original Manifold")
+    plt.title("Original Manifold", fontsize=32)
     for i, method in enumerate(methods):
         print("Running {}".format(methods[i].name))
         try:
             t0 = time.time()
             x = methods[i].method.fit_transform(methods[i].data)
             t1 = time.time()
-            ax = fig.add_subplot(2, 5, i + 2)
-
+            ax = fig.add_subplot("33{}".format(i + 2), aspect=1)
             # Plot the 2 dimensions.
-            plt.scatter(x[:, 0], x[:, 1], c=color, cmap=plt.cm.Spectral)
-            plt.title(methods[i].name + "(%.2g sec)" % (t1-t0))
-            ax.xaxis.set_major_formatter(NullFormatter())
-            ax.yaxis.set_major_formatter(NullFormatter())
+            ax.scatter(x[:, 0], x[:, 1], c=color, cmap=plt.cm.Spectral)
+            plt.title(methods[i].name + "(%.2g sec)" % (t1-t0), fontsize=32)
+            #ax.xaxis.set_major_formatter(NullFormatter())
+            #ax.yaxis.set_major_formatter(NullFormatter())
             plt.axis('tight')
+
             #plt.show()
             # With high noise level, some of the models fail.
         except Exception as e:
             print(e)
-            ax = fig.add_subplot(2, 5, i + 2)
-            plt.title(methods[i].name + " did not run")
-            ax.xaxis.set_major_formatter(NullFormatter())
-            ax.yaxis.set_major_formatter(NullFormatter())
+            ax = fig.add_subplot("33{}".format(i + 2), aspect=1)
+            plt.title(methods[i].name + " did not run", fontsize=32)
+            # ax.xaxis.set_major_formatter(NullFormatter())
+            # ax.yaxis.set_major_formatter(NullFormatter())
             plt.axis('tight')
+    plt.tight_layout()
     plt.savefig(RESULT_IMAGE)
     plt.show()
 
