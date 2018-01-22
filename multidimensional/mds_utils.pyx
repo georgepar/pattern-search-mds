@@ -25,6 +25,10 @@ cdef extern double single_pertub_error(double* d_current, double* d_goal,
             double* xs, int row, int pertub_dim,
             int x_rows, int x_cols, double step)
 
+cdef extern double hooke_jeeves(double* xs, double radius, double* d_current,
+             double* d_goal, int ii, int x_rows, int x_cols,
+             double percent, double curr_error, double error_i)
+
 
 @cython.boundscheck(False)
 @cython.wraparound(False)
@@ -254,12 +258,56 @@ cpdef (double, int, double) c_pertub_error(
 
     return optimum_error, optimum_k, optimum_step
 
-    # for jj in ks:
-    #     step = radius if jj < step_size else -radius
-    #     kk = jj % step_size
-    #     e = single_pertub_error(&d_current[0, 0], &d_goal[0, 0], &xs[0, 0], ii, kk, x_rows, step_size, step)
-    #     if e < optimum_error:
-    #         optimum_error = e
-    #         optimum_k = kk
-    #         optimum_step = step
-    # return optimum_error, optimum_k, optimum_step
+
+@cython.boundscheck(False)
+@cython.wraparound(False)
+cpdef double hooke_j(
+    nd_arr[np.float64_t, ndim=2, mode="c"] xs,
+    double radius,
+    nd_arr[np.float64_t, ndim=2, mode="c"] d_current,
+    nd_arr[np.float64_t, ndim=2, mode="c"] d_goal,
+    int ii,
+    double curr_error,
+    double error_i,
+    double percent=.5):
+    cdef:
+        int step_size = xs.shape[1]
+        int x_rows = xs.shape[0]
+        int jj, kk, ll
+
+
+        double optimum_error = np.Inf
+        int optimum_k = 0
+        double optimum_step = 0
+        double e = 0
+        double d_temp = 0
+        double test_error = curr_error;
+
+    if step_size >= 25:
+        ks = np.random.choice(np.arange(0, 2 * step_size),
+                              size=int(2 * percent * step_size),
+                              replace=False)
+    else:
+        ks = np.arange(0, 2 * step_size)
+
+    for jj in ks:
+        step = radius if jj < step_size else -radius
+        kk = jj % step_size
+        e = 0
+        for ll in range(x_rows):
+            d_temp = d_current[ii, ll]
+            if ii != ll:
+                d_temp = sqrt(
+                    d_current[ii, ll] * d_current[ii, ll] -
+                    (xs[ii, kk] - xs[ll, kk]) * (xs[ii, kk] - xs[ll, kk]) +
+                    (xs[ii, kk] + step - xs[ll, kk]) * (xs[ii, kk] + step - xs[ll, kk]))
+            e += (d_goal[ii, ll] - d_temp) ** 2
+        test_error = curr_error - (error_i - e)
+        if test_error < curr_error:
+            d_current = update_distance_matrix(xs, d_current, ii, step, kk)
+            xs[ii, kk] += step
+            curr_error = test_error
+            error_i = e
+        else:
+            test_error = curr_error
+    return curr_error

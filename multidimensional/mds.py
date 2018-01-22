@@ -113,14 +113,16 @@ class MDS(object):
             for point in filtered_points:
                 error_i = common.MSE(d_goal[point], d_current[point])
                 optimum_error, optimum_k, optimum_step = (
-                    common.BEST_PERTUBATION(
-                        xs, radius, d_current, d_goal, point,
-                        percent=self.explore_dim_percent))
+                   common.BEST_PERTUBATION(
+                       xs, radius, d_current, d_goal, point,
+                       percent=self.explore_dim_percent))
                 test_error -= (error_i - optimum_error)
                 d_current = common.UPDATE_DISTANCE_MATRIX(
-                    xs, d_current, point, optimum_step, optimum_k)
+                   xs, d_current, point, optimum_step, optimum_k)
                 xs[point, optimum_k] += optimum_step
                 error = test_error
+                # error = common.HJ(xs, radius, d_current, d_goal, point, error, error_i,
+                #         percent=self.explore_dim_percent)
             self._log_iteration(turn, radius, prev_error, error)
             if self.keep_history:
                 self.history_observer.epoch(turn, radius, error, xs)
