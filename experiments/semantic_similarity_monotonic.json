@@ -1,0 +1,38 @@
+{
+    "MDS (monotonic)":{
+        "men":{
+            "correlation":0.5698168744,
+            "significance":0.0,
+            "test_pairs":3000
+        },
+        "simlex":{
+            "correlation":0.1661508462,
+            "significance":0.000000128,
+            "test_pairs":999
+        }
+    },
+    "MDS SMACOF":{
+        "men":{
+            "correlation":0.6098220136,
+            "significance":0.0,
+            "test_pairs":3000
+        },
+        "simlex":{
+            "correlation":0.197813328,
+            "significance":0.0000000003,
+            "test_pairs":999
+        }
+    },
+    "MDS proposed":{
+        "men":{
+            "correlation":0.5374821937,
+            "significance":0.0,
+            "test_pairs":3000
+        },
+        "simlex":{
+            "correlation":0.2563181751,
+            "significance":0.0,
+            "test_pairs":999
+        }
+    }
+}

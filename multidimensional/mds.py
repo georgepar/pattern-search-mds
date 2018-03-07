@@ -2,6 +2,7 @@
 
 import logging
 import os
+import time
 
 from datetime import datetime
 import numpy as np
@@ -81,7 +82,8 @@ class MDS(object):
                 xs = common.random_table(x.shape[0],
                                          self.target_dimensions,
                                          uniform=self.uniform_init)
-            d_goal = common.DISTANCE_MATRIX(xs)
+            x = x.astype(np.float64)
+            d_goal = common.DISTANCE_MATRIX(x)
         d_current = common.DISTANCE_MATRIX(xs)
         points = np.arange(xs.shape[0])
 
@@ -94,11 +96,13 @@ class MDS(object):
         #errors = np.zeros(xs.shape[0])
         LOG.info("Starting Error: {}".format(error))
 
+        avg_epoch_time = 0
         if self.keep_history:
-            self.history_observer.epoch(turn, radius, error, xs)
+            self.history_observer.epoch(turn, radius, error, xs, avg_epoch_time)
 
         while not self._stop_conditions(
                 turn, patience_cnt, error, radius):
+            t0 = time.time()
             turn += 1
             radius_burnout += 1
 
@@ -122,11 +126,15 @@ class MDS(object):
                 xs[point, optimum_k] += optimum_step
                 error = test_error
                 # error = common.HJ(xs, radius, d_current, d_goal, point, error, error_i,
-                #         percent=self.explore_dim_percent)
+                #         percent=self.explore_dim_percent)a
+            t1 = time.time()
+            avg_epoch_time += (t1 - t0)
+            LOG.info("Epoch took: {}".format(t1 - t0))
             self._log_iteration(turn, radius, prev_error, error)
             if self.keep_history:
-                self.history_observer.epoch(turn, radius, error, xs)
+                self.history_observer.epoch(turn, radius, error, xs, epoch_time=avg_epoch_time)
         self.num_epochs = turn
+        LOG.info("Avg epoch time: {}".format(avg_epoch_time / float(self.num_epochs)))
         LOG.info("Ending Error: {}".format(error))
         return xs
 

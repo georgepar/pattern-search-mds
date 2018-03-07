@@ -19,12 +19,12 @@ from sklearn.neighbors import KNeighborsClassifier
 # this is main module path
 sys.path.append('../../../')
 
-# import multidimensional
-# import multidimensional.common
-# import multidimensional.mds
-# import multidimensional.point_filters
-# import multidimensional.radius_updates
-# import multidimensional.datagen.shapes as datagen
+import multidimensional
+import multidimensional.common
+import multidimensional.mds
+import multidimensional.point_filters
+import multidimensional.radius_updates
+import multidimensional.datagen.shapes as datagen
 
 # import config
 
@@ -133,8 +133,13 @@ def exp_main(target_dim, initial_dim, n_samples, data, labels,
         for k,v in metrics_l:
             metric_dic[k].append(v)
 
+    metrics = {}
+
     for k,v in metric_dic.items():
+        metrics[k] = np.mean(v)
         print "{}: \t {} +-({})".format(k, np.mean(v), np.std(v))
+
+    return metrics
 
 
 

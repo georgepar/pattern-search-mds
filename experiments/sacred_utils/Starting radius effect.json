@@ -1,0 +1,12 @@
+{
+  "r0=32": {
+    "MSE": "5a8ff0ea3fa98f7adefc3d49"
+  },
+  "r0=65536": {
+    "MSE": "5a8ff0ea3fa98f7adefc3d45"
+  },
+  "r0=1": {
+    "MSE": "5a8ff0ea3fa98f7adefc3d46"
+  }
+}
+

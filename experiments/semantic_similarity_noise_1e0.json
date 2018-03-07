@@ -1,0 +1,26 @@
+{
+    "MDS SMACOF":{
+        "men":{
+            "correlation":0.187654821,
+            "significance":0.0,
+            "test_pairs":3000
+        },
+        "simlex":{
+            "correlation":0.0771583964,
+            "significance":0.01471467,
+            "test_pairs":999
+        }
+    },
+    "MDS proposed":{
+        "men":{
+            "correlation":0.1489681788,
+            "significance":0.0,
+            "test_pairs":3000
+        },
+        "simlex":{
+            "correlation":0.044307657,
+            "significance":0.1617037531,
+            "test_pairs":999
+        }
+    }
+}

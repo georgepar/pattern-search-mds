@@ -27,6 +27,7 @@ class Shape(object):
                  noise_std=1e-2,
                  n_jobs=4):
         np.random.seed(seed)
+        self.points = X
         self.seed = seed
         self.name = name
         self.n_neighbors = n_neighbors
@@ -37,7 +38,6 @@ class Shape(object):
         self.geodesic_d = None
         self.use_noise = use_noise
         self.noise_std = noise_std
-        self.points = self.add_noise(X)
         self.color = None
 
     def generate(self, npoints, use_cache=True):
@@ -164,8 +164,12 @@ class Shape(object):
     def instance(self, npoints=0, distance='euclidean', geomethod='neigh'):
         if self.points is None:
             points = self.generate(npoints)
+            points = self.add_noise(points)
+            self.points = points
         else:
-            points = self.points
+            points = self.add_noise(self.points)
+            self.points = points
+
         if distance == 'euclidean':
             dist = self.euclidean_distances()
         elif distance == 'sqeuclidean':

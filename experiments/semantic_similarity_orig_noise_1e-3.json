@@ -1,0 +1,14 @@
+{
+    "Original Embeddings 300d":{
+        "men":{
+            "correlation":0.4390214865,
+            "significance":0.0,
+            "test_pairs":3000
+        },
+        "simlex":{
+            "correlation":0.0836329581,
+            "significance":0.0081761278,
+            "test_pairs":999
+        }
+    }
+}

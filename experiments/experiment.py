@@ -22,27 +22,28 @@ import multidimensional.mds
 import multidimensional.point_filters
 import multidimensional.radius_updates
 import multidimensional.datagen.shapes as datagen
+import multidimensional.smacof
 
 import config
 
 
-EXPERIMENT_NAME = 'Swissroll_huge'
+EXPERIMENT_NAME = 'clusters_3d_3e-1'
 
-KEEP_HISTORY = False
+KEEP_HISTORY = True
 
 ex = Experiment(EXPERIMENT_NAME)
 ex.observers.append(MongoObserver.create(
     url=config.SACRED_MONGO_URL,
-    #db_name=config.SACRED_DB
-    db_name='test'
+    db_name=config.SACRED_DB
+    # db_name='test'
 ))
 
 
-RESULT_IMAGE = 't.png'
+RESULT_IMAGE = EXPERIMENT_NAME + '.png'
 
 @ex.config
 def cfg():
-    data_type = 'swisshole' # 'toroid-helix'
+    data_type = 'clusters-3d'
     # {
     #     'sphere': Sphere,
     #     'cut-sphere': CutSphere,
@@ -69,13 +70,13 @@ def cfg():
     target_dim = 2
     point_filter = (multidimensional
                     .point_filters
-                    .FixedStochasticFilter(keep_percent=1))
+                    .FixedStochasticFilter(keep_percent=.8))
     radius_update = (multidimensional
                      .radius_updates
-                     .AdaRadiusHalving(tolerance=1e-3))
+                     .AdaRadiusHalving(tolerance=5e-4))
     radius_barrier = 1e-3
     explore_dim_percent = 1
-    starting_radius = 512
+    starting_radius = 16
     max_turns = 10000
 
 
@@ -108,7 +109,7 @@ def experiment(
             explore_dim_percent=explore_dim_percent,
             keep_history=KEEP_HISTORY,
             history_color=color,
-            history_path=EXPERIMENT_NAME,
+            history_path=EXPERIMENT_NAME+'_mds_proposed',
             dissimilarities='precomputed'),
         d_goal)
     LLE = dim_reduction(
@@ -152,11 +153,12 @@ def experiment(
         xs)
     mds = dim_reduction(
         'MDS SMACOF',
-        manifold.MDS(n_components=target_dim,
-                     n_init=1,
-                     max_iter=max_turns,
-                     verbose=2,
-                     dissimilarity='precomputed'),
+        multidimensional.smacof.MDS(n_components=target_dim,
+                                    n_init=1,
+                                    max_iter=max_turns,
+                                    verbose=2,
+                                    dissimilarity='precomputed',
+                                    history_path=EXPERIMENT_NAME + '_mds_smacof'),
         d_goal)
     SpectralEmbedding = dim_reduction(
         'SpectralEmbedding',
@@ -169,7 +171,7 @@ def experiment(
         xs)
 
     methods = [MDS_proposed, mds, PCA, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
-    #methods = [HessianLLE, LTSA]
+    #methods = [MDS_proposed, mds]
     fig = plt.figure(figsize=(20, 20))
 
     #plt.suptitle("Learning %s with %i points, %.3f noise"
@@ -182,6 +184,8 @@ def experiment(
         try:
             t0 = time.time()
             x = methods[i].method.fit_transform(methods[i].data)
+            if method.name == 'LTSA':
+                 print(x)
             t1 = time.time()
             ax = fig.add_subplot("33{}".format(i + 2), aspect=1)
             # Plot the 2 dimensions.
@@ -206,11 +210,11 @@ def experiment(
 
     # m.plot_history()
 
-    # history = m.history_observer.history
-    # for i, error in enumerate(history['error']):
-    #     _run.log_scalar('mds.mse.error', error, i + 1)
-    # for i, radius in enumerate(history['radius']):
-    #     _run.log_scalar('mds.step', radius, i + 1)
+    history = MDS_proposed.method.history_observer.history
+    for i, error in enumerate(history['error']):
+        _run.log_scalar('mds.mse.error', error, i + 1)
+    for i, radius in enumerate(history['radius']):
+        _run.log_scalar('mds.step', radius, i + 1)
     # start_points = history['xs_files'][0]
     # _run.add_artifact(start_points, name='points_start')
     # end_points = history['xs_files'][-1]
@@ -222,5 +226,12 @@ def experiment(
     #     _run.add_artifact(end_image, name='points_image_end')
     # if history['animation'] is not None:
     #     _run.add_artifact(history['animation'], name='animation')
-    # return m.history_observer.history['error'][-1]
+
+    history = mds.method.history_observer.history
+    for i, error in enumerate(history['error']):
+        _run.log_scalar('smacof.mse.error', error, i + 1)
+    for i, radius in enumerate(history['radius']):
+        _run.log_scalar('smacof.step', radius, i + 1)
+
+    return MDS_proposed.method.history_observer.history['error'][-1]
 
