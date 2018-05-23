@@ -1,14 +1,17 @@
-#!/usr/bin/python3
-
-import logging
 import numpy as np
 from sklearn.base import BaseEstimator
+from sklearn.utils import check_array, check_random_state
 
-from . import common
+from mds_utils import distance_matrix, update_distance_matrix
+from mds_utils import c_pertub_error as best_pertubation
+from mds_utils import mse as mse1d
+from mds_utils import mse2 as mse2d
 
-logging.basicConfig()
-LOG = logging.getLogger("MDS")
-LOG.setLevel(logging.INFO)
+
+def _log_iteration(turn, radius, prev_error, error):
+    print("Turn {0}: Radius {1}: (prev, error decrease, error): "
+          "({2}, {3}, {4})"
+          .format(turn, radius, prev_error, prev_error - error, error))
 
 
 def _radius_update(radius, error, prev_error, tolerance=1e-4):
@@ -26,88 +29,93 @@ def _point_sampling(points, keep_percent=1.0, turn=-1, recalculate_each=-1):
     return np.random.choice(points, size=keep, replace=False)
 
 
+def pattern_search_mds(d_goal, init=None, n_components=2, starting_radius=1.0,
+                       radius_update_tolerance=1e-4, sample_points=1.0,
+                       explore_dim_percent=1.0, max_iter=1000, radius_barrier=1e-3,
+                       n_jobs=1, verbose=0, random_state=None):
+    n_samples = d_goal.shape[0]
+    random_state = check_random_state(random_state)
+    xs = (init
+          if init is not None
+          else random_state.rand(n_samples, n_components))
+    d_current = distance_matrix(xs)
+    points = np.arange(xs.shape[0])
+
+    radius = starting_radius
+    turn = 0
+    patience_cnt = 0
+    error = mse2d(d_goal, d_current)
+    prev_error = np.Inf
+    if verbose:
+        print("Starting Error: {}".format(error))
+
+    while not (turn >= max_iter or radius <= radius_barrier):
+        turn += 1
+
+        if error >= prev_error:
+            patience_cnt += 1
+        radius = _radius_update(
+            radius, error, prev_error, tolerance=radius_update_tolerance)
+        prev_error = error
+        filtered_points = _point_sampling(
+            points, keep_percent=sample_points)
+        test_error = error
+        for point in filtered_points:
+            error_i = mse1d(d_goal[point], d_current[point])
+            optimum_error, optimum_k, optimum_step = best_pertubation(
+                    xs, radius, d_current, d_goal, point,
+                    percent=explore_dim_percent)
+            test_error -= (error_i - optimum_error)
+            d_current = update_distance_matrix(
+                xs, d_current, point, optimum_step, optimum_k)
+            xs[point, optimum_k] += optimum_step
+            error = test_error
+        if verbose >= 2:
+            _log_iteration(turn, radius, prev_error, error)
+    if verbose:
+        print("Ending Error: {}".format(error))
+    return xs, error, turn
+
+
 class MDS(BaseEstimator):
     def __init__(self,
-                 target_dimensions,
+                 n_components=2,
                  starting_radius=1.0,
-                 max_turns=1000,
-                 patience=np.Inf,
-                 error_barrier=1e-2,
+                 max_iter=1000,
                  radius_barrier=1e-3,
                  explore_dim_percent=1.0,
-                 sample_points_percent=1.0,
+                 sample_points=1.0,
                  radius_update_tolerance=1e-4,
+                 verbose=0,
+                 random_state=None,
+                 n_jobs=1,
                  dissimilarity='precomputed'):
         self.radius_update_tolerance = radius_update_tolerance
-        self.sample_points = sample_points_percent
-        self.target_dimensions = target_dimensions
+        self.sample_points = sample_points
+        self.n_components = n_components
         self.starting_radius = starting_radius
-        self.max_turns = max_turns
-        self.patience = patience
-        self.error_barrier = error_barrier
+        self.max_iter = max_iter
         self.radius_barrier = radius_barrier
         self.explore_dim_percent = explore_dim_percent
         self.num_epochs = 0
+        self.verbose = verbose
+        self.random_state = random_state
+        self.n_jobs = 1
         self.dissimilarity = dissimilarity
 
-    @staticmethod
-    def _log_iteration(turn, radius, prev_error, error):
-        LOG.debug("Turn {0}: Radius {1}: (prev, error decrease, error): "
-                  "({2}, {3}, {4})"
-                  .format(turn, radius, prev_error, prev_error - error, error))
-
-    def _stop_conditions(self, turn, patience_cnt, error, radius):
-        return (turn >= self.max_turns or
-                patience_cnt >= self.patience or
-                error <= self.error_barrier or
-                radius <= self.radius_barrier)
+    def fit_transform(self, X, init=None):
+        X = X.astype(np.float64)
+        X = check_array(X)
+        d_goal = X if self.dissimilarity == 'precomputed' else distance_matrix(X)
+        self.embedding_, self.error_, self.n_iter_ = pattern_search_mds(
+            d_goal, init=init, n_components=self.n_components,
+            starting_radius=self.starting_radius, max_iter=self.max_iter,
+            sample_points=self.sample_points, explore_dim_percent=self.explore_dim_percent,
+            radius_update_tolerance=self.radius_update_tolerance, radius_barrier=self.radius_barrier,
+            n_jobs=self.n_jobs, verbose=self.verbose, random_state=self.random_state
+        )
+        return self.embedding_
 
     def fit(self, X, init=None):
-        if self.dissimilarity == 'precomputed':
-            d_goal = X
-            xs = np.random.rand(X.shape[0], self.target_dimensions)
-        else:
-            if init is not None:
-                xs = init
-            else:
-                xs = np.random.rand(X.shape[0], self.target_dimensions)
-            X = X.astype(np.float64)
-            d_goal = common.DISTANCE_MATRIX(X)
-        d_current = common.DISTANCE_MATRIX(xs)
-        points = np.arange(xs.shape[0])
-
-        radius = self.starting_radius
-        turn = 0
-        patience_cnt = 0
-        error = common.MSE2(d_goal, d_current)
-        prev_error = np.Inf
-        LOG.debug("Starting Error: {}".format(error))
-
-        while not self._stop_conditions(turn, patience_cnt, error, radius):
-            turn += 1
-
-            if error >= prev_error:
-                patience_cnt += 1
-            radius = _radius_update(radius, error, prev_error, tolerance=self.radius_update_tolerance)
-            prev_error = error
-            filtered_points = _point_sampling(points, keep_percent=self.sample_points)
-            test_error = error
-            for point in filtered_points:
-                error_i = common.MSE(d_goal[point], d_current[point])
-                optimum_error, optimum_k, optimum_step = (
-                    common.BEST_PERTUBATION(
-                        xs, radius, d_current, d_goal, point,
-                        percent=self.explore_dim_percent))
-                test_error -= (error_i - optimum_error)
-                d_current = common.UPDATE_DISTANCE_MATRIX(
-                    xs, d_current, point, optimum_step, optimum_k)
-                xs[point, optimum_k] += optimum_step
-                error = test_error
-            self._log_iteration(turn, radius, prev_error, error)
-        self.num_epochs = turn
-        LOG.debug("Ending Error: {}".format(error))
-        return xs
-
-    @common.timemethod
-    def fit_transform(self, X, init=None):
-        return self.fit(X, init=init)
+        self.fit_transform(X, init=init)
+        return self
