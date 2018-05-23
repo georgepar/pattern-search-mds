@@ -49,14 +49,13 @@ class StoredMetrics(object):
         }
         plt.hold(True)
         for exp_name, axes in metrics.items():
-            label = '{}, #Epochs: {}, Final Error: {}'.format(
+            label = '{}, Epochs: {}, Final Error: {:.1f}'.format(
                 exp_name, axes['x'][-1], axes['y'][-1])
             plt.plot(axes['x'], axes['y'], label=label)
-        plt.title("Convergenge of {} for {}".format(
-            metric_name, self.experiment_description))
+        plt.title("{}".format(self.experiment_description), fontsize=22)
         plt.yscale('log')
-        plt.ylabel(metric_name)
-        plt.xlabel('Epochs')
+        plt.ylabel(metric_name, fontsize=20)
+        plt.xlabel('Epochs', fontsize=20)
         plt.legend(loc='best')
         plt.savefig(filename)
 

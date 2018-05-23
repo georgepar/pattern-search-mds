@@ -33,6 +33,7 @@ import multidimensional.smacof
 import multidimensional.point_filters
 import multidimensional.radius_updates
 import multidimensional.datagen.shapes as datagen
+import multidimensional.monotonic
 
 import config
 import multidimensional.config as project_config
@@ -40,15 +41,15 @@ import multidimensional.config as project_config
 import mmfeat
 import mmfeat.space
 
-EXPERIMENT_NAME = 'Semantic_similarity_MEN'
+EXPERIMENT_NAME = 'Semantic_similarity_men_only'
 
-KEEP_HISTORY = False
+KEEP_HISTORY = True
 
 ex = Experiment(EXPERIMENT_NAME)
 ex.observers.append(MongoObserver.create(
     url=config.SACRED_MONGO_URL,
-    #db_name=config.SACRED_DB
-    db_name='test'
+    db_name=config.SACRED_DB
+    #db_name='test'
 ))
 
 
@@ -64,7 +65,7 @@ def cfg():
         'mmfeat/datasets/simlex.json')
     data_file = os.path.join(
        project_config.BASE_PATH,
-       'real_data/glove.semantic.300d.txt')
+       'real_data/simlex-word-vectors')
     data_file_small = os.path.join(
         project_config.BASE_PATH,
         'real_data/glove.semantic.50d.txt')
@@ -75,20 +76,21 @@ def cfg():
     data_type = 'real' # 'toroid-helix'
     dim = 300
     distance = 'euclidean'
-    npoints = 1577
-    n_neighbors = 12
+    npoints = 751
+    n_neighbors = 66
     noise_std = 0
-    target_dim = 50
+    target_dim = 100
     point_filter = (multidimensional
                     .point_filters
-                    .FixedStochasticFilter(keep_percent=1, recalculate_each=10))
+                    .FixedStochasticFilter(keep_percent=1, recalculate_each=100000))
     radius_update = (multidimensional
                      .radius_updates
-                     .AdaRadiusHalving(tolerance=.5*1e-3, burnout_tolerance=100000))
+                     .AdaRadiusHalving(tolerance=1e-4, burnout_tolerance=100000))
     radius_barrier = 1e-3
-    explore_dim_percent = .9
+    explore_dim_percent = 1
     starting_radius = 8
     max_turns = 1000000
+    dataset = 'simlex'
 
 
 def load_ground_truth(gt_file):
@@ -128,7 +130,7 @@ class Identity(object):
 def experiment(
         ground_truth_men, ground_truth_simlex, data_file, data_file_small, data_type, dim, distance, npoints,
         n_neighbors, noise_std, target_dim, point_filter, radius_update,
-        radius_barrier, explore_dim_percent, starting_radius, max_turns,
+        radius_barrier, explore_dim_percent, starting_radius, max_turns, dataset,
         _run):
     xs = None
     xs_small = None
@@ -140,9 +142,11 @@ def experiment(
             words, xs = multidimensional.common.load_embeddings(data_file)
 
     if data_file_small is not None:
-        words, xs_small = multidimensional.common.load_embeddings(data_file_small)
+        _, xs_small = multidimensional.common.load_embeddings(data_file_small)
     men = load_ground_truth(ground_truth_men)
     simlex = load_ground_truth(ground_truth_simlex)
+
+    print(xs.shape)
 
     xs, d_goal, color = (datagen.DataBuilder()
                          .with_dim(dim)
@@ -157,7 +161,7 @@ def experiment(
     xs_small, d_goal_small, color = (datagen.DataBuilder()
                                .with_dim(dim)
                                .with_distance(distance)
-                               .with_noise(noise_std)
+                                #.with_noise(noise_std)
                                .with_npoints(npoints)
                                .with_neighbors(n_neighbors)
                                .with_points(xs_small)
@@ -177,9 +181,27 @@ def experiment(
             explore_dim_percent=explore_dim_percent,
             keep_history=KEEP_HISTORY,
             history_color=color,
-            history_path=EXPERIMENT_NAME,
+            history_path=EXPERIMENT_NAME + 'mds_proposed',
             dissimilarities='precomputed'),
         d_goal)
+
+    mds_monotonic = dim_reduction(
+        'MDS (monotonic)',
+        multidimensional.monotonic.MDS(
+            target_dim,
+            point_filter,
+            radius_update,
+            starting_radius=starting_radius,
+            radius_barrier=radius_barrier,
+            max_turns=max_turns,
+            explore_dim_percent=explore_dim_percent,
+            keep_history=KEEP_HISTORY,
+            history_color=color,
+            history_path=EXPERIMENT_NAME+'_mds_monotonic',
+            dissimilarities='precomputed'),
+        d_goal)
+
+
     LLE = dim_reduction(
         'LLE',
         manifold.LocallyLinearEmbedding(n_neighbors,
@@ -218,7 +240,8 @@ def experiment(
                                     n_init=1,
                                     max_iter=max_turns,
                                     verbose=2,
-                                    dissimilarity='precomputed'),
+                                    dissimilarity='precomputed',
+                                    history_path=EXPERIMENT_NAME + '_mds_smacof'),
         d_goal)
 
     PCA = dim_reduction(
@@ -249,8 +272,8 @@ def experiment(
         manifold.TSNE(n_components=target_dim, init='pca', random_state=0),
         xs)
 
-    methods = [original, original_small, PCA, MDS_proposed, mds, Isomap, LLE, HessianLLE, ModifiedLLE, LTSA]
-
+    #methods = [original]
+    methods = [MDS_proposed, mds_monotonic, mds, original, Isomap, PCA, LLE, ModifiedLLE, LTSA, HessianLLE]
     res = {}
     for method in methods:
         try:
@@ -258,18 +281,39 @@ def experiment(
 
             res[method.name] = {}
 
-            res[method.name]['men'] = semantic_similarity(method.name, men, words, x)
-            res[method.name]['simlex'] = semantic_similarity(method.name, simlex, words, x)
+            if dataset == 'men':
+                res[method.name]['men'] = semantic_similarity(method.name, men, words, x)
+            else:
+                res[method.name]['simlex'] = semantic_similarity(method.name, simlex, words, x)
 
             print("Model: {}\t result:{}".format(method.name, res))
-        except:
-            print("{} did not run".format(method.name))
+        except Exception as e:
+            print(e)
 
-    with open('semantic_similarity1.json', 'w') as fd:
-        json.dump(res, fd)
+    with open('semantic_similarity_simlex_only100.json', 'w') as fd:
+        json.dump(res, fd, indent=4, sort_keys=True)
     # m.plot_history()
 
-    # history = m.history_observer.history
+    history = MDS_proposed.method.history_observer.history
+    for i, error in enumerate(history['error']):
+        _run.log_scalar('mds.mse.error', error, i + 1)
+    for i, radius in enumerate(history['radius']):
+        _run.log_scalar('mds.step', radius, i + 1)
+ 
+    history = mds.method.history_observer.history
+    for i, error in enumerate(history['error']):
+        _run.log_scalar('smacof.mse.error', error, i + 1)
+    for i, radius in enumerate(history['radius']):
+        _run.log_scalar('smacof.step', radius, i + 1)
+
+    history = mds_monotonic.method.history_observer.history
+    for i, error in enumerate(history['error']):
+        _run.log_scalar('mds_monotonic.mse.error', error, i + 1)
+    for i, radius in enumerate(history['radius']):
+        _run.log_scalar('mds_monotonic.step', radius, i + 1)
+
+    return MDS_proposed.method.history_observer.history['error'][-1]
+
     # for i, error in enumerate(history['error']):
     #     _run.log_scalar('mds.mse.error', error, i + 1)
     # for i, radius in enumerate(history['radius']):

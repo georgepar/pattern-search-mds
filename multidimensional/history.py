@@ -24,6 +24,7 @@ class HistoryObserver(object):
         self.path = os.path.join(config.HISTORY_DIR, path)
         self.history = {
             'radius': [],
+            'epoch_time': [],
             'error': [],
             'xs_files': [],
             'xs_images': [],
@@ -33,10 +34,11 @@ class HistoryObserver(object):
             shutil.rmtree(self.path, ignore_errors=True)
         common.mkdir_p(self.path)
 
-    def epoch(self, turn, radius, error, xs):
+    def epoch(self, turn, radius, error, xs, epoch_time=0):
         xs_file = os.path.join(self.path, 'epoch_{}'.format(turn))
         np.savetxt(xs_file, xs, delimiter=',')
         self.history['radius'].append(radius)
+        self.history['epoch_time'].append(epoch_time)
         self.history['error'].append(error)
         self.history['xs_files'].append(xs_file)
 

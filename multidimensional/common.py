@@ -16,6 +16,7 @@ MSE = mds_utils.mse
 MSE2 = mds_utils.mse2
 SUM = np.sum
 SQRT = np.sqrt
+HJ = mds_utils.hooke_j
 
 
 def load_embeddings(data_file):

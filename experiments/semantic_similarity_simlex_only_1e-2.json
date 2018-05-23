@@ -1,0 +1,72 @@
+{
+    "HessianLLE":{
+        "simlex":{
+            "correlation":0.0547579934,
+            "significance":0.0836544134,
+            "test_pairs":999
+        }
+    },
+    "Isomap":{
+        "simlex":{
+            "correlation":0.1342541983,
+            "significance":0.0000206872,
+            "test_pairs":999
+        }
+    },
+    "LLE":{
+        "simlex":{
+            "correlation":0.1747433113,
+            "significance":0.0000000271,
+            "test_pairs":999
+        }
+    },
+    "LTSA":{
+        "simlex":{
+            "correlation":0.0583114584,
+            "significance":0.0654300642,
+            "test_pairs":999
+        }
+    },
+    "MDS (monotonic)":{
+        "simlex":{
+            "correlation":0.2229631917,
+            "significance":0.0,
+            "test_pairs":999
+        }
+    },
+    "MDS SMACOF":{
+        "simlex":{
+            "correlation":0.221926096,
+            "significance":0.0,
+            "test_pairs":999
+        }
+    },
+    "MDS proposed":{
+        "simlex":{
+            "correlation":0.2487714476,
+            "significance":0.0,
+            "test_pairs":999
+        }
+    },
+    "ModifiedLLE":{
+        "simlex":{
+            "correlation":0.1584373265,
+            "significance":0.0000004822,
+            "test_pairs":999
+        }
+    },
+    "Original Embeddings 300d":{
+        "simlex":{
+            "correlation":0.1775232978,
+            "significance":0.0000000162,
+            "test_pairs":999
+        }
+    },
+    "Truncated SVD":{
+        "simlex":{
+            "correlation":0.1398989756,
+            "significance":0.0000090762,
+            "test_pairs":999
+        }
+    }
+}
