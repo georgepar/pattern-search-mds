@@ -12,7 +12,7 @@ from cython.parallel cimport prange
 from libc.math cimport sqrt
 
 
-cdef extern from "parallel_utils.h":
+cdef extern from "_mds_pertubations.h":
     cdef struct pertub_res:
         int k
         double step
@@ -21,7 +21,7 @@ cdef extern from "parallel_utils.h":
     ctypedef pertub_res pertub_res_t
 
 cdef extern pertub_res min_pertub_error(double* xs, double radius, double* d_current,
-             double* d_goal, int ii, int x_rows, int x_cols, double percent)
+             double* d_goal, int ii, int x_rows, int x_cols, double percent, int n_jobs)
 
 
 cdef extern double single_pertub_error(double* d_current, double* d_goal,
@@ -104,7 +104,8 @@ cpdef (double, int, double) c_pertub_error(
     nd_arr[np.float64_t, ndim=2, mode="c"] d_current,
     nd_arr[np.float64_t, ndim=2, mode="c"] d_goal,
     int ii,
-    double percent=.5):
+    double percent=.5,
+    int n_jobs=1):
     cdef:
         int x_cols = xs.shape[1]
         int x_rows = xs.shape[0]
@@ -115,8 +116,8 @@ cpdef (double, int, double) c_pertub_error(
 
     cdef:
         pertub_res optimum = min_pertub_error(
-            &xs[0,0], radius, &d_current[0, 0],
-            &d_goal[0, 0], ii, x_rows, x_cols, percent)
+            &xs[0,0], radius, &d_current[0, 0], &d_goal[0, 0],
+            ii, x_rows, x_cols, percent, n_jobs)
         double optimum_error = optimum.error
         int optimum_k = optimum.k
         double optimum_step = optimum.step

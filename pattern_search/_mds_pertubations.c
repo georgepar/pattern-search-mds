@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <stdlib.h>
-#include "parallel_utils.h"
+#include "_mds_pertubations.h"
 
 #define ERROR_BUF_SZ 2000
 #define DBL_MAX 1.79769e+308
@@ -42,16 +42,17 @@ single_pertub_error(double* d_current, double* d_goal,
 
 pertub_res
 min_pertub_error(double* xs, double radius, double* d_current,
-                 double* d_goal, int ii, int x_rows, int x_cols, double percent)
+                 double* d_goal, int ii, int x_rows, int x_cols,
+                 double percent, int n_jobs)
 {
     int jj;
     struct pertub_res optimum;
     optimum.error = DBL_MAX;
 
-    #pragma omp parallel
+#pragma omp parallel num_threads(n_jobs)
     {
         srand((int)time(NULL) ^ omp_get_thread_num());
-        #pragma omp for nowait
+#pragma omp for nowait
         for(jj=0; jj < 2 * x_cols; jj++)
         {
             if ((double)rand() / (double)((unsigned)RAND_MAX + 1) > percent)

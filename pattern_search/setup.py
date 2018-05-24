@@ -10,8 +10,8 @@ def configuration(parent_package="", top_path=None):
     libraries = []
     if os.name == 'posix':
         libraries.append('m')
-    config.add_extension('mds_utils',
-                         sources=["mds_utils.pyx", "parallel_utils.c"],
+    config.add_extension('_mds_fast',
+                         sources=["_mds_fast.pyx", "_mds_pertubations.c"],
                          include_dirs=[numpy.get_include()],
                          libraries=libraries)
 
