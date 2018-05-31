@@ -13,6 +13,13 @@ from libc.math cimport sqrt
 
 
 cdef extern from "_mds_pertubations.h":
+    '''
+    Port struct defined in _mds_pertubations.h
+    Contains:
+        - The index k of the point that is moved
+        - The step that this point is moved
+        - The error after the move
+    '''
     cdef struct pertub_res:
         int k
         double step
@@ -20,16 +27,17 @@ cdef extern from "_mds_pertubations.h":
 
     ctypedef pertub_res pertub_res_t
 
-cdef extern pertub_res min_pertub_error(double* xs, double radius, double* d_current,
-             double* d_goal, int ii, int x_rows, int x_cols, double percent, int n_jobs)
+'''
+Get the pertubation that yields the best error. Defined in _mds_pertubations.c
+'''
+cdef extern pertub_res min_pertub_error(
+        double* xs, double radius, double* d_current,
+        double* d_goal, int ii, int x_rows, int x_cols,
+        double percent, int n_jobs)
 
 
-cdef extern double single_pertub_error(double* d_current, double* d_goal,
-            double* xs, int row, int pertub_dim,
-            int x_rows, int x_cols, double step)
+def distance_matrix(double[:, :] A):
 
-
-def distance_matrix(double [:, :] A):
     cdef:
         Py_ssize_t nrow = A.shape[0]
         Py_ssize_t ncol = A.shape[1]
