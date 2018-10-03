@@ -11,15 +11,14 @@ from cython.parallel cimport prange
 # faster
 from libc.math cimport sqrt
 
-
-cdef extern from "_mds_pertubations.h":
-    '''
-    Port struct defined in _mds_pertubations.h
-    Contains:
-        - The index k of the point that is moved
-        - The step that this point is moved
-        - The error after the move
-    '''
+'''
+Port struct defined in mds_pertubations.h
+Contains:
+    - The index k of the point that is moved
+    - The step that this point is moved
+    - The error after the move
+'''
+cdef extern from "mds_pertubations.h":
     cdef struct pertub_res:
         int k
         double step
@@ -28,7 +27,7 @@ cdef extern from "_mds_pertubations.h":
     ctypedef pertub_res pertub_res_t
 
 '''
-Get the pertubation that yields the best error. Defined in _mds_pertubations.c
+Get the pertubation that yields the best error. Defined in mds_pertubations.c
 '''
 cdef extern pertub_res min_pertub_error(
         double* xs, double radius, double* d_current,

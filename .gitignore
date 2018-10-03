@@ -1,5 +1,6 @@
 *.png
 _mds_fast.c
+mds_fast.c
 
 experiments/config.py
 experiments/sacred_utils/config.py

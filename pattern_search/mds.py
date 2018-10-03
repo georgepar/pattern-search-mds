@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.base import BaseEstimator
 from sklearn.utils import check_array, check_random_state
 
-from _mds_fast import (
+from mds_fast import (
     distance_matrix,
     update_distance_matrix,
     c_pertub_error as best_pertubation,
